@@ -117,31 +117,42 @@ export async function fetchRoute(
   }));
 }
 
-// OSRM Trip API — reorder intermediate stops for the most efficient sequence.
-// Start fixed, end fixed, intermediate stops reorderable.
-export async function fetchOptimizedTrip(points: LngLat[]): Promise<RouteResult> {
-  if (points.length < 3) return fetchRoute(points);
-  const coords = points.map((p) => `${p[0]},${p[1]}`).join(";");
-  const url = `${OSRM}/trip/v1/driving/${coords}?source=first&destination=last&roundtrip=false&overview=full&geometries=geojson`;
-  const res = await fetch(url);
-  if (!res.ok) return fetchRoute(points);
-  const data = await res.json();
-  if (!data.trips?.length) return fetchRoute(points);
-  const t = data.trips[0];
-  const order = (data.waypoints as Array<{ waypoint_index: number }>)
-    .map((w, i) => ({ original: i, order: w.waypoint_index }))
-    .sort((a, b) => a.order - b.order)
-    .map((w) => w.original);
-  return {
-    geometry: t.geometry,
-    distance: t.distance,
-    duration: t.duration,
-    legs: t.legs.map((l: { distance: number; duration: number }) => ({
-      distance: l.distance,
-      duration: l.duration,
-    })),
-    waypointOrder: order,
-  };
+// Get the primary route + (optionally) up to 2 alternatives. When stops are
+// included, the OSRM Trip API is used first to reorder intermediate stops for
+// the most efficient sequence; alternatives are fetched separately on the
+// resulting waypoint order so all routes share the same stop sequence.
+export async function fetchRoutes(
+  points: LngLat[],
+  withAlternatives = true,
+): Promise<{ routes: RouteResult[]; waypointOrder: number[] }> {
+  // 1. Optimal stop sequence (only matters if there are intermediate stops)
+  let orderedPoints = points;
+  let waypointOrder = points.map((_, i) => i);
+
+  if (points.length >= 3) {
+    try {
+      const coords = points.map((p) => `${p[0]},${p[1]}`).join(";");
+      const url = `${OSRM}/trip/v1/driving/${coords}?source=first&destination=last&roundtrip=false&overview=false`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.trips?.length) {
+          const order = (data.waypoints as Array<{ waypoint_index: number }>)
+            .map((w, i) => ({ original: i, order: w.waypoint_index }))
+            .sort((a, b) => a.order - b.order)
+            .map((w) => w.original);
+          waypointOrder = order;
+          orderedPoints = order.map((i) => points[i]);
+        }
+      }
+    } catch {
+      /* fall back to original order */
+    }
+  }
+
+  // 2. Fetch primary + alternatives along the chosen waypoint order
+  const routes = await fetchRoute(orderedPoints, withAlternatives);
+  return { routes, waypointOrder };
 }
 
 // ---------- Forward-flow corridor ----------
