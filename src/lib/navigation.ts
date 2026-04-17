@@ -219,7 +219,12 @@ export function filterForwardPois(
       };
     })
     .filter((p): p is Poi => p !== null)
-    .sort((a, b) => a.detourMeters - b.detourMeters)
+    // Closest-ahead first, with a small detour penalty so a tiny side-trip
+    // beats one that's slightly closer but far off the route.
+    .sort(
+      (a, b) =>
+        a.forwardKm + a.detourMeters / 2000 - (b.forwardKm + b.detourMeters / 2000),
+    )
     .slice(0, 30);
 }
 
