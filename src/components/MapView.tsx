@@ -12,6 +12,8 @@ import {
 import { Fuel, UtensilsCrossed, TreePalm } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { LngLat, Poi, PoiCategory, RouteResult } from "@/lib/navigation";
+import { MAP_STYLES } from "@/lib/mapStyles";
+import type { MapStyleId } from "@/lib/storage";
 
 interface MapViewProps {
   userPos: LngLat | null;
@@ -24,6 +26,7 @@ interface MapViewProps {
   pois: Poi[];
   corridor: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
   focusBounds: L.LatLngBoundsExpression | null;
+  mapStyle: MapStyleId;
 }
 
 // Divs as Leaflet icons
