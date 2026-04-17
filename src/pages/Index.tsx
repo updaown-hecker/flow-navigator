@@ -344,8 +344,23 @@ const Index = () => {
     userPos ?? originCoord ?? (destination ? [destination.lon, destination.lat] : null);
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-glow" aria-hidden />
+    <>
+      {splashing && <Splash onDone={() => setSplashing(false)} />}
+      {!splashing && onboarding && (
+        <Onboarding
+          onComplete={({ userPos: pos, home: h, work: w }) => {
+            if (pos) {
+              setUserPos(pos);
+              setGpsBlocked(false);
+            }
+            if (h) setHomeState(h);
+            if (w) setWorkState(w);
+            setOnboarding(false);
+          }}
+        />
+      )}
+      <main className="relative h-screen w-screen overflow-hidden bg-background">
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-glow" aria-hidden />
 
       <MapView
         userPos={userPos}
@@ -602,7 +617,8 @@ const Index = () => {
         onStartNav={() => setNavigating((v) => !v)}
         isNavigating={navigating}
       />
-    </main>
+      </main>
+    </>
   );
 };
 
