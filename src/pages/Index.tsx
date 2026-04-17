@@ -36,12 +36,18 @@ import {
   addRecent,
   clearRecents,
   getHome,
+  getMapStyle,
   getRecents,
+  getTheme,
   getWork,
   isOnboarded,
+  setAppTheme,
   setHome as persistHome,
+  setMapStyleId,
   setOnboarded,
   setWork as persistWork,
+  type AppTheme,
+  type MapStyleId,
 } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +91,29 @@ const Index = () => {
   // Startup gates
   const [splashing, setSplashing] = useState(true);
   const [onboarding, setOnboarding] = useState(() => !isOnboarded());
+
+  // Theme + map style
+  const [theme, setThemeState] = useState<AppTheme>(() => getTheme());
+  const [mapStyle, setMapStyleState] = useState<MapStyleId>(() => getMapStyle());
+
+  // Apply theme class to <html>
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("theme-light", "theme-midnight", "dark");
+    if (theme === "light") root.classList.add("theme-light");
+    else if (theme === "midnight") root.classList.add("theme-midnight");
+    else root.classList.add("dark");
+  }, [theme]);
+
+  const handleChangeTheme = (t: AppTheme) => {
+    setThemeState(t);
+    setAppTheme(t);
+  };
+  const handleChangeMapStyle = (s: MapStyleId) => {
+    setMapStyleState(s);
+    setMapStyleId(s);
+  };
+
 
   const originCoord: LngLat | null = useMemo(() => {
     if (originPlace) return [originPlace.lon, originPlace.lat];
