@@ -12,6 +12,8 @@ import {
 import { Fuel, UtensilsCrossed, TreePalm } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { LngLat, Poi, PoiCategory, RouteResult } from "@/lib/navigation";
+import { MAP_STYLES } from "@/lib/mapStyles";
+import type { MapStyleId } from "@/lib/storage";
 
 interface MapViewProps {
   userPos: LngLat | null;
@@ -24,6 +26,7 @@ interface MapViewProps {
   pois: Poi[];
   corridor: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
   focusBounds: L.LatLngBoundsExpression | null;
+  mapStyle: MapStyleId;
 }
 
 // Divs as Leaflet icons
@@ -90,6 +93,7 @@ export function MapView({
   pois,
   corridor,
   focusBounds,
+  mapStyle,
 }: MapViewProps) {
   const center: [number, number] = userPos ? [userPos[1], userPos[0]] : [40.758, -73.9855];
 
@@ -106,6 +110,8 @@ export function MapView({
     [],
   );
 
+  const style = MAP_STYLES[mapStyle] ?? MAP_STYLES.dark;
+
   return (
     <MapContainer
       center={center}
@@ -115,11 +121,21 @@ export function MapView({
       worldCopyJump
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        subdomains="abcd"
-        maxZoom={20}
+        key={style.id}
+        attribution={style.attribution}
+        url={style.url}
+        subdomains={style.subdomains ?? "abc"}
+        maxZoom={style.maxZoom}
       />
+      {style.overlayUrl && (
+        <TileLayer
+          key={`${style.id}-labels`}
+          url={style.overlayUrl}
+          subdomains="abcd"
+          maxZoom={style.maxZoom}
+          opacity={0.9}
+        />
+      )}
 
       <CenterOn pos={userPos} />
       <FitBounds bounds={focusBounds} />
