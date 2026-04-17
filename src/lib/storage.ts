@@ -55,6 +55,13 @@ export const setOnboarded = (v: boolean) => {
   else localStorage.removeItem(ONBOARDED_KEY);
 };
 
+// ---------- Theme + map style ----------
+export const getTheme = (): AppTheme => safeRead<AppTheme>(THEME_KEY, "dark");
+export const setAppTheme = (t: AppTheme) => safeWrite(THEME_KEY, t);
+
+export const getMapStyle = (): MapStyleId => safeRead<MapStyleId>(MAP_STYLE_KEY, "dark");
+export const setMapStyleId = (s: MapStyleId) => safeWrite(MAP_STYLE_KEY, s);
+
 // ---------- Recents ----------
 export const getRecents = (): SearchResult[] => safeRead<SearchResult[]>(RECENTS_KEY, []);
 
