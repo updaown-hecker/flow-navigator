@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { toast } from "sonner";
-import { Compass, Crosshair, Loader2, MapPin, Navigation as NavIcon } from "lucide-react";
+import {
+  Compass,
+  Crosshair,
+  Loader2,
+  MapPin,
+  Home as HomeIcon,
+  Navigation as NavIcon,
+  Star,
+} from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
 import { BottomSheet } from "@/components/BottomSheet";
 import {
   buildForwardCorridor,
-  fetchOptimizedTrip,
   fetchPoisInBbox,
+  fetchRoutes,
   filterForwardPois,
+  fmtDuration,
+  fmtKm,
   polygonBbox,
   type LngLat,
   type Poi,
@@ -17,15 +27,21 @@ import {
   type RouteResult,
   type SearchResult,
 } from "@/lib/navigation";
-
-const MY_LOCATION_LABEL = "My location";
+import { getCurrentPosition, type GeoErrorReason } from "@/lib/geo";
+import {
+  addRecent,
+  getHome,
+  getRecents,
+  setHome as persistHome,
+} from "@/lib/storage";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const [userPos, setUserPos] = useState<LngLat | null>(null);
   const [locating, setLocating] = useState(false);
-  const [gpsAvailable, setGpsAvailable] = useState(true);
+  const [gpsBlocked, setGpsBlocked] = useState(false);
 
-  // Origin: either tracks GPS (origin === null && userPos set), or a manually picked place.
+  // Origin (null + userPos = "My location"; otherwise a manually picked place)
   const [originPlace, setOriginPlace] = useState<SearchResult | null>(null);
   const [originQuery, setOriginQuery] = useState("");
   const [originEditing, setOriginEditing] = useState(false);
@@ -37,7 +53,8 @@ const Index = () => {
   const [adding, setAdding] = useState(false);
   const [stopQuery, setStopQuery] = useState("");
 
-  const [route, setRoute] = useState<RouteResult | null>(null);
+  const [routes, setRoutes] = useState<RouteResult[]>([]);
+  const [activeRouteIdx, setActiveRouteIdx] = useState(0);
   const [routeLoading, setRouteLoading] = useState(false);
   const [corridor, setCorridor] = useState<GeoJSON.Feature<
     GeoJSON.Polygon | GeoJSON.MultiPolygon
@@ -51,53 +68,55 @@ const Index = () => {
   const [focusBounds, setFocusBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const poiAbort = useRef<AbortController | null>(null);
 
-  // Resolved origin coordinate
+  // Persistence-backed state
+  const [home, setHomeState] = useState<SearchResult | null>(() => getHome());
+  const [recents, setRecents] = useState<SearchResult[]>(() => getRecents());
+
   const originCoord: LngLat | null = useMemo(() => {
     if (originPlace) return [originPlace.lon, originPlace.lat];
     if (userPos) return userPos;
     return null;
   }, [originPlace, userPos]);
 
-  // ---- Geolocation ----
-  const requestLocation = useCallback((silent = false) => {
-    if (!navigator.geolocation) {
-      setGpsAvailable(false);
-      if (!silent) toast.error("Geolocation not supported by this browser.");
-      return;
-    }
+  const activeRoute = routes[activeRouteIdx] ?? null;
+
+  // ---- Geolocation (cross-platform) ----
+  const requestLocation = useCallback(async (silent = false) => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPos([pos.coords.longitude, pos.coords.latitude]);
-        setGpsAvailable(true);
-        setLocating(false);
-        setOriginPlace(null); // snap origin back to GPS
-        setOriginQuery("");
-      },
-      (err) => {
-        setLocating(false);
-        setGpsAvailable(false);
-        if (!silent) {
-          toast.error(
-            err.code === err.PERMISSION_DENIED
-              ? "Location blocked. Type a starting point in the From field."
-              : "Couldn't get your location. Type a starting point manually.",
-            { duration: 5000 },
-          );
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    try {
+      const { pos } = await getCurrentPosition();
+      setUserPos(pos);
+      setGpsBlocked(false);
+      setOriginPlace(null);
+      setOriginQuery("");
+    } catch (err: unknown) {
+      const reason = (err as { reason?: GeoErrorReason }).reason ?? "unavailable";
+      setGpsBlocked(true);
+      if (!silent) {
+        const msg =
+          reason === "denied"
+            ? "Location blocked. Enable it in your browser/app settings, or type a starting point in From."
+            : reason === "unsupported"
+              ? "This device doesn't support geolocation."
+              : reason === "timeout"
+                ? "Location request timed out. Try again or type a starting point."
+                : "Couldn't read GPS. Type a starting point in From.";
+        toast.error(msg, { duration: 5000 });
+      }
+    } finally {
+      setLocating(false);
+    }
   }, []);
 
   useEffect(() => {
     requestLocation(true);
   }, [requestLocation]);
 
-  // ---- Compute route whenever waypoints change ----
+  // ---- Compute routes whenever waypoints change ----
   useEffect(() => {
     if (!originCoord || !destination) {
-      setRoute(null);
+      setRoutes([]);
+      setActiveRouteIdx(0);
       setCorridor(null);
       setPois([]);
       setFocusBounds(null);
@@ -112,10 +131,11 @@ const Index = () => {
           ...stops.map((s) => [s.lon, s.lat] as LngLat),
           [destination.lon, destination.lat],
         ];
-        const r = await fetchOptimizedTrip(points);
+        const { routes: rs } = await fetchRoutes(points, true);
         if (cancelled) return;
-        setRoute(r);
-        const coords = r.geometry.coordinates;
+        setRoutes(rs);
+        setActiveRouteIdx(0);
+        const coords = rs[0].geometry.coordinates;
         const lats = coords.map((c) => c[1]);
         const lons = coords.map((c) => c[0]);
         setFocusBounds([
@@ -133,9 +153,9 @@ const Index = () => {
     };
   }, [originCoord, destination, stops]);
 
-  // ---- Fetch + filter POIs whenever category or route changes ----
+  // ---- Fetch + filter POIs against the *active* route ----
   useEffect(() => {
-    if (!poiCategory || !route || !originCoord) {
+    if (!poiCategory || !activeRoute || !originCoord) {
       setPois([]);
       setCorridor(null);
       return;
@@ -148,7 +168,7 @@ const Index = () => {
       setPoiLoading(true);
       try {
         const { corridor: corr, snappedKm } = buildForwardCorridor(
-          route.geometry,
+          activeRoute.geometry,
           originCoord,
           1.5,
           120,
@@ -161,7 +181,7 @@ const Index = () => {
         const filtered = filterForwardPois(
           raw,
           poiCategory,
-          route.geometry,
+          activeRoute.geometry,
           originCoord,
           corr,
           snappedKm,
@@ -177,35 +197,38 @@ const Index = () => {
       }
     })();
     return () => ctl.abort();
-  }, [poiCategory, route, originCoord]);
+  }, [poiCategory, activeRoute, originCoord]);
+
+  // ---- Selection + recents ----
+  const recordRecent = (place: SearchResult) => {
+    addRecent(place);
+    setRecents(getRecents());
+  };
 
   const handleSelectDestination = (r: SearchResult) => {
     setDestination(r);
     setDestinationQuery(r.shortLabel);
+    recordRecent(r);
   };
 
   const handleSelectOrigin = (r: SearchResult) => {
     setOriginPlace(r);
     setOriginQuery(r.shortLabel);
     setOriginEditing(false);
+    recordRecent(r);
   };
 
   const handleAddStopSelect = (r: SearchResult) => {
     setStops((s) => [...s, r]);
     setStopQuery("");
     setAdding(false);
+    recordRecent(r);
   };
 
   const handleAddPoiAsStop = (poi: Poi) => {
     setStops((s) => [
       ...s,
-      {
-        id: poi.id,
-        label: poi.name,
-        shortLabel: poi.name,
-        lat: poi.lat,
-        lon: poi.lon,
-      },
+      { id: poi.id, label: poi.name, shortLabel: poi.name, lat: poi.lat, lon: poi.lon },
     ]);
     setPoiCategory(null);
     toast.success(`Added ${poi.name} to your route`);
@@ -219,10 +242,43 @@ const Index = () => {
     setPoiCategory(null);
   };
 
-  const stopsCoords = useMemo<LngLat[]>(() => stops.map((s) => [s.lon, s.lat]), [stops]);
+  // ---- Home actions ----
+  const navigateHome = () => {
+    if (!home) {
+      toast.message("No Home set yet — search a destination, then tap the star to save it as Home.");
+      setOriginEditing(false);
+      return;
+    }
+    setDestination(home);
+    setDestinationQuery(home.shortLabel);
+    setStops([]);
+    setPoiCategory(null);
+  };
 
-  const originLabel = originPlace ? originPlace.shortLabel : userPos ? MY_LOCATION_LABEL : "";
+  const toggleHome = () => {
+    if (!destination) {
+      toast.message("Pick a destination first, then tap the star to save it as Home.");
+      return;
+    }
+    if (home && home.id === destination.id) {
+      persistHome(null);
+      setHomeState(null);
+      toast.success("Home removed");
+    } else {
+      persistHome(destination);
+      setHomeState(destination);
+      toast.success(`Saved Home: ${destination.shortLabel}`);
+    }
+  };
+
+  const stopsCoords = useMemo<LngLat[]>(() => stops.map((s) => [s.lon, s.lat]), [stops]);
+  const originLabel = originPlace ? originPlace.shortLabel : userPos ? "My location" : "";
   const showOriginField = originEditing || (!userPos && !originPlace);
+  const isDestHome = home && destination && home.id === destination.id;
+
+  // Bias for searches: prefer GPS, fall back to current origin or destination
+  const searchBias: LngLat | null =
+    userPos ?? originCoord ?? (destination ? [destination.lon, destination.lat] : null);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-background">
@@ -233,7 +289,9 @@ const Index = () => {
         origin={originCoord}
         destination={destination ? [destination.lon, destination.lat] : null}
         stops={stopsCoords}
-        route={route}
+        routes={routes}
+        activeRouteIdx={activeRouteIdx}
+        onSelectRoute={setActiveRouteIdx}
         pois={pois}
         corridor={corridor}
         focusBounds={focusBounds}
@@ -254,21 +312,36 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => requestLocation(false)}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-              aria-label="Use my GPS location"
-            >
-              {locating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Crosshair className="h-3.5 w-3.5" />
-              )}
-              Use GPS
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={navigateHome}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition",
+                  home
+                    ? "border-secondary/50 bg-secondary/15 text-secondary hover:brightness-110"
+                    : "border-border bg-muted/40 text-muted-foreground hover:border-secondary/40 hover:text-secondary",
+                )}
+                aria-label="Navigate home"
+              >
+                <HomeIcon className="h-3.5 w-3.5" />
+                Home
+              </button>
+              <button
+                onClick={() => requestLocation(false)}
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                aria-label="Use my GPS location"
+              >
+                {locating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Crosshair className="h-3.5 w-3.5" />
+                )}
+                GPS
+              </button>
+            </div>
           </div>
 
-          {/* From (origin) */}
+          {/* From */}
           {showOriginField ? (
             <SearchBox
               variant="compact"
@@ -276,9 +349,11 @@ const Index = () => {
               onChange={setOriginQuery}
               onSelect={handleSelectOrigin}
               placeholder={
-                gpsAvailable ? "From — type an address or use GPS" : "From — type a starting address"
+                gpsBlocked ? "From — type a starting address" : "From — type an address or use GPS"
               }
               autoFocus={!userPos && !originPlace}
+              bias={searchBias}
+              recents={recents}
             />
           ) : (
             <button
@@ -299,14 +374,39 @@ const Index = () => {
             </button>
           )}
 
-          {/* To (destination) */}
-          <SearchBox
-            value={destinationQuery}
-            onChange={setDestinationQuery}
-            onSelect={handleSelectDestination}
-            onClear={clearRoute}
-            placeholder="Where to?"
-          />
+          {/* To */}
+          <div className="relative">
+            <SearchBox
+              value={destinationQuery}
+              onChange={setDestinationQuery}
+              onSelect={handleSelectDestination}
+              onClear={clearRoute}
+              placeholder="Where to?"
+              bias={searchBias}
+              recents={recents}
+              home={home}
+              showHomeShortcut
+              onPickHome={navigateHome}
+            />
+            {destination && (
+              <button
+                onClick={toggleHome}
+                title={isDestHome ? "Remove Home" : "Save as Home"}
+                className={cn(
+                  "absolute right-14 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition",
+                  isDestHome
+                    ? "text-secondary"
+                    : "text-muted-foreground hover:text-secondary",
+                )}
+                aria-label="Save as Home"
+              >
+                <Star
+                  className="h-4 w-4"
+                  fill={isDestHome ? "currentColor" : "none"}
+                />
+              </button>
+            )}
+          </div>
 
           {adding && (
             <SearchBox
@@ -316,18 +416,57 @@ const Index = () => {
               onChange={setStopQuery}
               onSelect={handleAddStopSelect}
               placeholder="Add a stop along the way…"
+              bias={searchBias}
+              recents={recents}
             />
+          )}
+
+          {/* Route alternatives picker */}
+          {routes.length > 1 && (
+            <div className="glass flex gap-2 overflow-x-auto rounded-2xl p-2 thin-scroll">
+              {routes.map((r, idx) => {
+                const active = idx === activeRouteIdx;
+                return (
+                  <button
+                    key={`route-${idx}`}
+                    onClick={() => setActiveRouteIdx(idx)}
+                    className={cn(
+                      "flex shrink-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-all",
+                      active
+                        ? "border-primary/60 bg-primary/15 shadow-glow"
+                        : "border-border bg-muted/40 hover:border-primary/40",
+                    )}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {idx === 0 ? "Fastest" : `Alt ${idx}`}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-sm font-bold",
+                        active
+                          ? "bg-gradient-route bg-clip-text text-transparent"
+                          : "text-foreground",
+                      )}
+                    >
+                      {fmtDuration(r.duration)}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {fmtKm(r.distance)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
 
           {!destination && !routeLoading && originCoord && (
             <div className="glass mt-1 flex items-start gap-2.5 rounded-2xl px-4 py-3 text-xs leading-relaxed text-muted-foreground">
               <NavIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>
-                Search a destination, then tap{" "}
-                <span className="font-semibold text-primary">Gas</span>,{" "}
-                <span className="font-semibold text-primary">Food</span>, or{" "}
-                <span className="font-semibold text-primary">Rest</span> to find stops on the way —
-                never a U-turn away.
+                Search a destination, tap{" "}
+                <span className="font-semibold text-secondary">Home</span> for your saved address,
+                or pick <span className="font-semibold text-primary">Gas / Food / Rest</span> after
+                a route is set to find on-the-way stops.
               </span>
             </div>
           )}
@@ -336,22 +475,23 @@ const Index = () => {
             <div className="glass mt-1 flex items-start gap-2.5 rounded-2xl px-4 py-3 text-xs leading-relaxed text-muted-foreground">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
               <span>
-                Location is blocked in this preview. Type a starting address in the{" "}
-                <span className="font-semibold text-foreground">From</span> field above to begin.
+                Location unavailable here. Type a starting address in{" "}
+                <span className="font-semibold text-foreground">From</span> — on a real device
+                (Android/iOS build or published web app), GPS will work natively.
               </span>
             </div>
           )}
 
           {routeLoading && (
             <div className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating optimal route…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating routes…
             </div>
           )}
         </div>
       </header>
 
       <BottomSheet
-        route={route}
+        route={activeRoute}
         destination={destination?.shortLabel ?? null}
         stopsCount={stops.length}
         poiCategory={poiCategory}
