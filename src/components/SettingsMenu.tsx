@@ -68,7 +68,7 @@ export function SettingsMenu({
   );
 
   return (
-    <div className="relative" ref={ref}>
+    <div className={`relative ${open ? "z-[1200]" : ""}`} ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-muted/40 text-muted-foreground transition hover:border-primary/40 hover:text-primary"
@@ -78,7 +78,7 @@ export function SettingsMenu({
       </button>
 
       {open && (
-        <div className="glass absolute right-0 top-[calc(100%+8px)] z-[1000] w-64 rounded-2xl p-2 animate-fade-in">
+        <div className="glass absolute right-0 top-[calc(100%+8px)] z-[1300] w-64 rounded-2xl p-2 animate-fade-in shadow-2xl">
           <div className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Saved places
           </div>
