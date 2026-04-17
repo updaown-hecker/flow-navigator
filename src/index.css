@@ -58,28 +58,52 @@
     --sidebar-ring: 210 100% 60%;
   }
 
-  /* App is dark-by-default; keep .dark identical so toggles are inert */
-  .dark {
-    --background: 224 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 224 40% 9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 224 45% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 100% 60%;
-    --primary-foreground: 224 47% 6%;
-    --secondary: 268 90% 65%;
-    --secondary-foreground: 224 47% 6%;
-    --muted: 224 30% 14%;
-    --muted-foreground: 215 25% 70%;
-    --accent: 188 95% 55%;
-    --accent-foreground: 224 47% 6%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 30% 18%;
-    --input: 220 30% 16%;
-    --ring: 210 100% 60%;
+  /* Light theme */
+  .theme-light {
+    --background: 210 40% 98%;
+    --foreground: 224 47% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 47% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 47% 10%;
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 268 80% 55%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 15% 40%;
+    --accent: 188 85% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 86%;
+    --input: 220 20% 90%;
+    --ring: 210 100% 50%;
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100% / 0.92), hsl(220 20% 96% / 0.92));
+    --shadow-elev: 0 20px 50px -20px hsl(220 30% 40% / 0.25);
   }
+
+  /* Midnight (deep purple) theme */
+  .theme-midnight {
+    --background: 270 50% 5%;
+    --foreground: 280 30% 96%;
+    --card: 270 45% 9%;
+    --card-foreground: 280 30% 96%;
+    --popover: 270 50% 7%;
+    --popover-foreground: 280 30% 96%;
+    --primary: 285 95% 65%;
+    --primary-foreground: 270 50% 5%;
+    --secondary: 200 100% 60%;
+    --secondary-foreground: 270 50% 5%;
+    --muted: 270 30% 14%;
+    --muted-foreground: 280 20% 70%;
+    --border: 275 30% 20%;
+    --input: 275 30% 16%;
+    --ring: 285 95% 65%;
+    --gradient-route: linear-gradient(90deg, hsl(285 95% 65%), hsl(200 100% 60%));
+    --gradient-surface: linear-gradient(180deg, hsl(270 45% 11% / 0.85), hsl(270 50% 6% / 0.85));
+  }
+
 }
 
 @layer base {
