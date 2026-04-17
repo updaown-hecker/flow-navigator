@@ -336,7 +336,8 @@ const Index = () => {
   const stopsCoords = useMemo<LngLat[]>(() => stops.map((s) => [s.lon, s.lat]), [stops]);
   const originLabel = originPlace ? originPlace.shortLabel : userPos ? "My location" : "";
   const showOriginField = originEditing || (!userPos && !originPlace);
-  const isDestHome = home && destination && home.id === destination.id;
+  const isDestHome = !!(home && destination && home.id === destination.id);
+  const isDestWork = !!(work && destination && work.id === destination.id);
 
   // Bias for searches: prefer GPS, fall back to current origin or destination
   const searchBias: LngLat | null =
@@ -378,7 +379,7 @@ const Index = () => {
               <button
                 onClick={navigateHome}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition",
+                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition",
                   home
                     ? "border-secondary/50 bg-secondary/15 text-secondary hover:brightness-110"
                     : "border-border bg-muted/40 text-muted-foreground hover:border-secondary/40 hover:text-secondary",
@@ -386,11 +387,24 @@ const Index = () => {
                 aria-label="Navigate home"
               >
                 <HomeIcon className="h-3.5 w-3.5" />
-                Home
+                <span className="hidden sm:inline">Home</span>
+              </button>
+              <button
+                onClick={navigateWork}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition",
+                  work
+                    ? "border-primary/50 bg-primary/15 text-primary hover:brightness-110"
+                    : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-primary",
+                )}
+                aria-label="Navigate to work"
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Work</span>
               </button>
               <button
                 onClick={() => requestLocation(false)}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
                 aria-label="Use my GPS location"
               >
                 {locating ? (
@@ -398,8 +412,16 @@ const Index = () => {
                 ) : (
                   <Crosshair className="h-3.5 w-3.5" />
                 )}
-                GPS
+                <span className="hidden sm:inline">GPS</span>
               </button>
+              <SettingsMenu
+                home={home}
+                work={work}
+                onEditHome={() => handleEditPlace("home")}
+                onEditWork={() => handleEditPlace("work")}
+                onClearRecents={handleClearRecents}
+                onResetOnboarding={handleResetOnboarding}
+              />
             </div>
           </div>
 
