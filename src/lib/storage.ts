@@ -4,8 +4,10 @@
 import type { SearchResult } from "./navigation";
 
 const HOME_KEY = "wayflow.home";
+const WORK_KEY = "wayflow.work";
 const RECENTS_KEY = "wayflow.recents";
 const SEARCH_CACHE_KEY = "wayflow.searchCache";
+const ONBOARDED_KEY = "wayflow.onboarded";
 const RECENTS_MAX = 20;
 const CACHE_MAX = 80;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
@@ -32,6 +34,20 @@ export const getHome = (): SearchResult | null => safeRead<SearchResult | null>(
 export const setHome = (place: SearchResult | null) => {
   if (place) safeWrite(HOME_KEY, place);
   else localStorage.removeItem(HOME_KEY);
+};
+
+// ---------- Work ----------
+export const getWork = (): SearchResult | null => safeRead<SearchResult | null>(WORK_KEY, null);
+export const setWork = (place: SearchResult | null) => {
+  if (place) safeWrite(WORK_KEY, place);
+  else localStorage.removeItem(WORK_KEY);
+};
+
+// ---------- Onboarding flag ----------
+export const isOnboarded = (): boolean => safeRead<boolean>(ONBOARDED_KEY, false);
+export const setOnboarded = (v: boolean) => {
+  if (v) safeWrite(ONBOARDED_KEY, true);
+  else localStorage.removeItem(ONBOARDED_KEY);
 };
 
 // ---------- Recents ----------

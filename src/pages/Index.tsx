@@ -7,12 +7,16 @@ import {
   Loader2,
   MapPin,
   Home as HomeIcon,
+  Briefcase,
   Navigation as NavIcon,
   Star,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
 import { BottomSheet } from "@/components/BottomSheet";
+import { Splash } from "@/components/Splash";
+import { Onboarding } from "@/components/Onboarding";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import {
   buildForwardCorridor,
   fetchPoisInBbox,
@@ -30,9 +34,14 @@ import {
 import { getCurrentPosition, type GeoErrorReason } from "@/lib/geo";
 import {
   addRecent,
+  clearRecents,
   getHome,
   getRecents,
+  getWork,
+  isOnboarded,
   setHome as persistHome,
+  setOnboarded,
+  setWork as persistWork,
 } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +79,12 @@ const Index = () => {
 
   // Persistence-backed state
   const [home, setHomeState] = useState<SearchResult | null>(() => getHome());
+  const [work, setWorkState] = useState<SearchResult | null>(() => getWork());
   const [recents, setRecents] = useState<SearchResult[]>(() => getRecents());
+
+  // Startup gates
+  const [splashing, setSplashing] = useState(true);
+  const [onboarding, setOnboarding] = useState(() => !isOnboarded());
 
   const originCoord: LngLat | null = useMemo(() => {
     if (originPlace) return [originPlace.lon, originPlace.lat];
@@ -271,18 +285,82 @@ const Index = () => {
     }
   };
 
+  // ---- Work actions ----
+  const navigateWork = () => {
+    if (!work) {
+      toast.message("No Work set yet — open Settings to add it.");
+      return;
+    }
+    setDestination(work);
+    setDestinationQuery(work.shortLabel);
+    setStops([]);
+    setPoiCategory(null);
+  };
+
+  // ---- Settings menu actions ----
+  const handleEditPlace = (kind: "home" | "work") => {
+    toast.message(
+      `Search a destination, then tap the ${kind === "home" ? "star" : "briefcase"} to save it as ${kind === "home" ? "Home" : "Work"}.`,
+      { duration: 4000 },
+    );
+  };
+
+  const handleClearRecents = () => {
+    clearRecents();
+    setRecents([]);
+    toast.success("Recent searches cleared");
+  };
+
+  const handleResetOnboarding = () => {
+    setOnboarded(false);
+    setOnboarding(true);
+    toast.message("Onboarding reset — welcome back!");
+  };
+
+  const toggleWork = () => {
+    if (!destination) {
+      toast.message("Pick a destination first, then tap the briefcase to save it as Work.");
+      return;
+    }
+    if (work && work.id === destination.id) {
+      persistWork(null);
+      setWorkState(null);
+      toast.success("Work removed");
+    } else {
+      persistWork(destination);
+      setWorkState(destination);
+      toast.success(`Saved Work: ${destination.shortLabel}`);
+    }
+  };
+
   const stopsCoords = useMemo<LngLat[]>(() => stops.map((s) => [s.lon, s.lat]), [stops]);
   const originLabel = originPlace ? originPlace.shortLabel : userPos ? "My location" : "";
   const showOriginField = originEditing || (!userPos && !originPlace);
-  const isDestHome = home && destination && home.id === destination.id;
+  const isDestHome = !!(home && destination && home.id === destination.id);
+  const isDestWork = !!(work && destination && work.id === destination.id);
 
   // Bias for searches: prefer GPS, fall back to current origin or destination
   const searchBias: LngLat | null =
     userPos ?? originCoord ?? (destination ? [destination.lon, destination.lat] : null);
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-glow" aria-hidden />
+    <>
+      {splashing && <Splash onDone={() => setSplashing(false)} />}
+      {!splashing && onboarding && (
+        <Onboarding
+          onComplete={({ userPos: pos, home: h, work: w }) => {
+            if (pos) {
+              setUserPos(pos);
+              setGpsBlocked(false);
+            }
+            if (h) setHomeState(h);
+            if (w) setWorkState(w);
+            setOnboarding(false);
+          }}
+        />
+      )}
+      <main className="relative h-screen w-screen overflow-hidden bg-background">
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-glow" aria-hidden />
 
       <MapView
         userPos={userPos}
@@ -316,7 +394,7 @@ const Index = () => {
               <button
                 onClick={navigateHome}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition",
+                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition",
                   home
                     ? "border-secondary/50 bg-secondary/15 text-secondary hover:brightness-110"
                     : "border-border bg-muted/40 text-muted-foreground hover:border-secondary/40 hover:text-secondary",
@@ -324,11 +402,24 @@ const Index = () => {
                 aria-label="Navigate home"
               >
                 <HomeIcon className="h-3.5 w-3.5" />
-                Home
+                <span className="hidden sm:inline">Home</span>
+              </button>
+              <button
+                onClick={navigateWork}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition",
+                  work
+                    ? "border-primary/50 bg-primary/15 text-primary hover:brightness-110"
+                    : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-primary",
+                )}
+                aria-label="Navigate to work"
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Work</span>
               </button>
               <button
                 onClick={() => requestLocation(false)}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
                 aria-label="Use my GPS location"
               >
                 {locating ? (
@@ -336,8 +427,16 @@ const Index = () => {
                 ) : (
                   <Crosshair className="h-3.5 w-3.5" />
                 )}
-                GPS
+                <span className="hidden sm:inline">GPS</span>
               </button>
+              <SettingsMenu
+                home={home}
+                work={work}
+                onEditHome={() => handleEditPlace("home")}
+                onEditWork={() => handleEditPlace("work")}
+                onClearRecents={handleClearRecents}
+                onResetOnboarding={handleResetOnboarding}
+              />
             </div>
           </div>
 
@@ -389,22 +488,36 @@ const Index = () => {
               onPickHome={navigateHome}
             />
             {destination && (
-              <button
-                onClick={toggleHome}
-                title={isDestHome ? "Remove Home" : "Save as Home"}
-                className={cn(
-                  "absolute right-14 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition",
-                  isDestHome
-                    ? "text-secondary"
-                    : "text-muted-foreground hover:text-secondary",
-                )}
-                aria-label="Save as Home"
-              >
-                <Star
-                  className="h-4 w-4"
-                  fill={isDestHome ? "currentColor" : "none"}
-                />
-              </button>
+              <div className="absolute right-12 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                <button
+                  onClick={toggleWork}
+                  title={isDestWork ? "Remove Work" : "Save as Work"}
+                  className={cn(
+                    "rounded-full p-1.5 transition",
+                    isDestWork ? "text-primary" : "text-muted-foreground hover:text-primary",
+                  )}
+                  aria-label="Save as Work"
+                >
+                  <Briefcase
+                    className="h-4 w-4"
+                    fill={isDestWork ? "currentColor" : "none"}
+                  />
+                </button>
+                <button
+                  onClick={toggleHome}
+                  title={isDestHome ? "Remove Home" : "Save as Home"}
+                  className={cn(
+                    "rounded-full p-1.5 transition",
+                    isDestHome ? "text-secondary" : "text-muted-foreground hover:text-secondary",
+                  )}
+                  aria-label="Save as Home"
+                >
+                  <Star
+                    className="h-4 w-4"
+                    fill={isDestHome ? "currentColor" : "none"}
+                  />
+                </button>
+              </div>
             )}
           </div>
 
@@ -504,7 +617,8 @@ const Index = () => {
         onStartNav={() => setNavigating((v) => !v)}
         isNavigating={navigating}
       />
-    </main>
+      </main>
+    </>
   );
 };
 
