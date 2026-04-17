@@ -402,6 +402,7 @@ const Index = () => {
         pois={pois}
         corridor={corridor}
         focusBounds={focusBounds}
+        mapStyle={mapStyle}
       />
 
       {/* Top bar */}
@@ -461,10 +462,14 @@ const Index = () => {
               <SettingsMenu
                 home={home}
                 work={work}
+                theme={theme}
+                mapStyle={mapStyle}
                 onEditHome={() => handleEditPlace("home")}
                 onEditWork={() => handleEditPlace("work")}
                 onClearRecents={handleClearRecents}
                 onResetOnboarding={handleResetOnboarding}
+                onChangeTheme={handleChangeTheme}
+                onChangeMapStyle={handleChangeMapStyle}
               />
             </div>
           </div>
