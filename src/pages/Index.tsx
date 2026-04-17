@@ -473,22 +473,36 @@ const Index = () => {
               onPickHome={navigateHome}
             />
             {destination && (
-              <button
-                onClick={toggleHome}
-                title={isDestHome ? "Remove Home" : "Save as Home"}
-                className={cn(
-                  "absolute right-14 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition",
-                  isDestHome
-                    ? "text-secondary"
-                    : "text-muted-foreground hover:text-secondary",
-                )}
-                aria-label="Save as Home"
-              >
-                <Star
-                  className="h-4 w-4"
-                  fill={isDestHome ? "currentColor" : "none"}
-                />
-              </button>
+              <div className="absolute right-12 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                <button
+                  onClick={toggleWork}
+                  title={isDestWork ? "Remove Work" : "Save as Work"}
+                  className={cn(
+                    "rounded-full p-1.5 transition",
+                    isDestWork ? "text-primary" : "text-muted-foreground hover:text-primary",
+                  )}
+                  aria-label="Save as Work"
+                >
+                  <Briefcase
+                    className="h-4 w-4"
+                    fill={isDestWork ? "currentColor" : "none"}
+                  />
+                </button>
+                <button
+                  onClick={toggleHome}
+                  title={isDestHome ? "Remove Home" : "Save as Home"}
+                  className={cn(
+                    "rounded-full p-1.5 transition",
+                    isDestHome ? "text-secondary" : "text-muted-foreground hover:text-secondary",
+                  )}
+                  aria-label="Save as Home"
+                >
+                  <Star
+                    className="h-4 w-4"
+                    fill={isDestHome ? "currentColor" : "none"}
+                  />
+                </button>
+              </div>
             )}
           </div>
 
