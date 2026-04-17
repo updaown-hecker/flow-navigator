@@ -13,6 +13,9 @@ import {
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
 import { BottomSheet } from "@/components/BottomSheet";
+import { Splash } from "@/components/Splash";
+import { Onboarding } from "@/components/Onboarding";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import {
   buildForwardCorridor,
   fetchPoisInBbox,
@@ -30,9 +33,14 @@ import {
 import { getCurrentPosition, type GeoErrorReason } from "@/lib/geo";
 import {
   addRecent,
+  clearRecents,
   getHome,
   getRecents,
+  getWork,
+  isOnboarded,
   setHome as persistHome,
+  setOnboarded,
+  setWork as persistWork,
 } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
