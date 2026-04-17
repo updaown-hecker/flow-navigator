@@ -7,6 +7,7 @@ import {
   Loader2,
   MapPin,
   Home as HomeIcon,
+  Briefcase,
   Navigation as NavIcon,
   Star,
 } from "lucide-react";
@@ -78,7 +79,12 @@ const Index = () => {
 
   // Persistence-backed state
   const [home, setHomeState] = useState<SearchResult | null>(() => getHome());
+  const [work, setWorkState] = useState<SearchResult | null>(() => getWork());
   const [recents, setRecents] = useState<SearchResult[]>(() => getRecents());
+
+  // Startup gates
+  const [splashing, setSplashing] = useState(true);
+  const [onboarding, setOnboarding] = useState(() => !isOnboarded());
 
   const originCoord: LngLat | null = useMemo(() => {
     if (originPlace) return [originPlace.lon, originPlace.lat];
@@ -276,6 +282,54 @@ const Index = () => {
       persistHome(destination);
       setHomeState(destination);
       toast.success(`Saved Home: ${destination.shortLabel}`);
+    }
+  };
+
+  // ---- Work actions ----
+  const navigateWork = () => {
+    if (!work) {
+      toast.message("No Work set yet — open Settings to add it.");
+      return;
+    }
+    setDestination(work);
+    setDestinationQuery(work.shortLabel);
+    setStops([]);
+    setPoiCategory(null);
+  };
+
+  // ---- Settings menu actions ----
+  const handleEditPlace = (kind: "home" | "work") => {
+    toast.message(
+      `Search a destination, then tap the ${kind === "home" ? "star" : "briefcase"} to save it as ${kind === "home" ? "Home" : "Work"}.`,
+      { duration: 4000 },
+    );
+  };
+
+  const handleClearRecents = () => {
+    clearRecents();
+    setRecents([]);
+    toast.success("Recent searches cleared");
+  };
+
+  const handleResetOnboarding = () => {
+    setOnboarded(false);
+    setOnboarding(true);
+    toast.message("Onboarding reset — welcome back!");
+  };
+
+  const toggleWork = () => {
+    if (!destination) {
+      toast.message("Pick a destination first, then tap the briefcase to save it as Work.");
+      return;
+    }
+    if (work && work.id === destination.id) {
+      persistWork(null);
+      setWorkState(null);
+      toast.success("Work removed");
+    } else {
+      persistWork(destination);
+      setWorkState(destination);
+      toast.success(`Saved Work: ${destination.shortLabel}`);
     }
   };
 
