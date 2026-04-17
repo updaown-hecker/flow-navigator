@@ -47,7 +47,7 @@ export function SearchBox({
 
   useEffect(() => {
     const q = value.trim();
-    if (q.length < 3) {
+    if (q.length < 2) {
       setResults([]);
       setLoading(false);
       return;
@@ -80,14 +80,14 @@ export function SearchBox({
       } finally {
         if (!ctl.signal.aborted) setLoading(false);
       }
-    }, 280);
+    }, 220);
     return () => {
       clearTimeout(t);
       ctl.abort();
     };
   }, [value, bias, biasKey]);
 
-  const isEmpty = value.trim().length < 3;
+  const isEmpty = value.trim().length < 2;
   const showShortcuts =
     open && isEmpty && ((showHomeShortcut && home) || recents.length > 0);
   const showResults = open && !isEmpty && results.length > 0;
