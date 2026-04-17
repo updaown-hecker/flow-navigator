@@ -38,11 +38,39 @@ const OSRM = "https://router.project-osrm.org";
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 
 // ---------- Search ----------
-export async function searchPlaces(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
-  if (query.trim().length < 3) return [];
-  const url = `${NOMINATIM}/search?format=json&addressdetails=1&limit=6&q=${encodeURIComponent(query)}`;
-  const res = await fetch(url, {
-    signal,
+// Location-biased Nominatim search. With a `bias` (typically the user's GPS
+// or current map center), short queries like "123 Main St" resolve to the
+// nearest match without requiring city/state.
+export interface SearchOptions {
+  bias?: LngLat | null; // [lon, lat]
+  signal?: AbortSignal;
+}
+
+export async function searchPlaces(
+  query: string,
+  opts: SearchOptions = {},
+): Promise<SearchResult[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+
+  const params = new URLSearchParams({
+    format: "json",
+    addressdetails: "1",
+    limit: "8",
+    q,
+  });
+
+  if (opts.bias) {
+    const [lon, lat] = opts.bias;
+    // ~80km box around the bias point — strong locality preference but not exclusive.
+    const dLat = 0.75;
+    const dLon = 0.75 / Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+    params.set("viewbox", `${lon - dLon},${lat + dLat},${lon + dLon},${lat - dLat}`);
+    params.set("bounded", "0"); // soft bias, not a hard filter
+  }
+
+  const res = await fetch(`${NOMINATIM}/search?${params.toString()}`, {
+    signal: opts.signal,
     headers: { "Accept-Language": navigator.language || "en" },
   });
   if (!res.ok) throw new Error("Search failed");
@@ -63,25 +91,30 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
 }
 
 // ---------- Routing (OSRM) ----------
-export async function fetchRoute(points: LngLat[]): Promise<RouteResult> {
+export async function fetchRoute(
+  points: LngLat[],
+  alternatives = false,
+): Promise<RouteResult[]> {
   if (points.length < 2) throw new Error("Need at least 2 points");
   const coords = points.map((p) => `${p[0]},${p[1]}`).join(";");
-  const url = `${OSRM}/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+  const altParam = alternatives ? "true" : "false";
+  const url = `${OSRM}/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=${altParam}&steps=false`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Route failed");
   const data = await res.json();
   if (!data.routes?.length) throw new Error("No route");
-  const r = data.routes[0];
-  return {
+  return (data.routes as Array<{
+    geometry: GeoJSON.LineString;
+    distance: number;
+    duration: number;
+    legs: Array<{ distance: number; duration: number }>;
+  }>).map((r) => ({
     geometry: r.geometry,
     distance: r.distance,
     duration: r.duration,
-    legs: r.legs.map((l: { distance: number; duration: number }) => ({
-      distance: l.distance,
-      duration: l.duration,
-    })),
+    legs: r.legs.map((l) => ({ distance: l.distance, duration: l.duration })),
     waypointOrder: points.map((_, i) => i),
-  };
+  }));
 }
 
 // OSRM Trip API — reorder intermediate stops for the most efficient sequence.
