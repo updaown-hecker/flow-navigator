@@ -18,7 +18,9 @@ interface MapViewProps {
   origin: LngLat | null;
   destination: LngLat | null;
   stops: LngLat[];
-  route: RouteResult | null;
+  routes: RouteResult[]; // index 0 = active, rest = alternatives
+  activeRouteIdx: number;
+  onSelectRoute: (idx: number) => void;
   pois: Poi[];
   corridor: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
   focusBounds: L.LatLngBoundsExpression | null;
@@ -82,16 +84,21 @@ export function MapView({
   origin,
   destination,
   stops,
-  route,
+  routes,
+  activeRouteIdx,
+  onSelectRoute,
   pois,
   corridor,
   focusBounds,
 }: MapViewProps) {
   const center: [number, number] = userPos ? [userPos[1], userPos[0]] : [40.758, -73.9855];
 
-  const routeLatLngs = useMemo<[number, number][]>(
-    () => route?.geometry.coordinates.map(([lon, lat]) => [lat, lon]) ?? [],
-    [route],
+  const routesLatLngs = useMemo(
+    () =>
+      routes.map(
+        (r) => r.geometry.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]),
+      ),
+    [routes],
   );
 
   const poiIcons = useMemo(
@@ -107,7 +114,6 @@ export function MapView({
       className="absolute inset-0 z-0 h-full w-full"
       worldCopyJump
     >
-      {/* CartoDB Dark Matter — sleek dark basemap */}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -118,7 +124,6 @@ export function MapView({
       <CenterOn pos={userPos} />
       <FitBounds bounds={focusBounds} />
 
-      {/* Forward corridor — subtle violet wash */}
       {corridor && (
         <GeoJSONLayer
           key={JSON.stringify(corridor.geometry).slice(0, 32) + pois.length}
@@ -134,11 +139,28 @@ export function MapView({
         />
       )}
 
-      {/* Glowing route — outer glow + inner crisp gradient */}
-      {routeLatLngs.length > 0 && (
+      {routesLatLngs.map((positions, idx) => {
+        if (idx === activeRouteIdx) return null;
+        return (
+          <Polyline
+            key={`alt-${idx}`}
+            positions={positions}
+            eventHandlers={{ click: () => onSelectRoute(idx) }}
+            pathOptions={{
+              color: "hsl(220 15% 55%)",
+              weight: 7,
+              opacity: 0.55,
+              lineCap: "round",
+              dashArray: "1 8",
+            }}
+          />
+        );
+      })}
+
+      {routesLatLngs[activeRouteIdx] && (
         <>
           <Polyline
-            positions={routeLatLngs}
+            positions={routesLatLngs[activeRouteIdx]}
             pathOptions={{
               color: "hsl(268 90% 65%)",
               weight: 12,
@@ -147,7 +169,7 @@ export function MapView({
             }}
           />
           <Polyline
-            positions={routeLatLngs}
+            positions={routesLatLngs[activeRouteIdx]}
             pathOptions={{
               color: "hsl(210 100% 60%)",
               weight: 5,
