@@ -8,9 +8,14 @@ const WORK_KEY = "wayflow.work";
 const RECENTS_KEY = "wayflow.recents";
 const SEARCH_CACHE_KEY = "wayflow.searchCache";
 const ONBOARDED_KEY = "wayflow.onboarded";
+const THEME_KEY = "wayflow.theme";
+const MAP_STYLE_KEY = "wayflow.mapStyle";
 const RECENTS_MAX = 20;
 const CACHE_MAX = 80;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+
+export type AppTheme = "dark" | "light" | "midnight";
+export type MapStyleId = "dark" | "light" | "streets" | "satellite" | "terrain";
 
 const safeRead = <T>(key: string, fallback: T): T => {
   try {
