@@ -2,95 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Wayflow design system — dark navigation, glassmorphic, electric accents */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
+    /* Deep navy near-black canvas */
+    --background: 224 47% 6%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 224 40% 9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 224 45% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Electric blue */
+    --primary: 210 100% 60%;
+    --primary-foreground: 224 47% 6%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Vivid violet */
+    --secondary: 268 90% 65%;
+    --secondary-foreground: 224 47% 6%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 224 30% 14%;
+    --muted-foreground: 215 25% 70%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 188 95% 55%;
+    --accent-foreground: 224 47% 6%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 220 30% 18%;
+    --input: 220 30% 16%;
+    --ring: 210 100% 60%;
+
+    --radius: 1.25rem;
+
+    /* Brand gradients */
+    --gradient-route: linear-gradient(90deg, hsl(268 90% 65%), hsl(210 100% 60%));
+    --gradient-glow: radial-gradient(60% 60% at 50% 0%, hsl(268 90% 65% / 0.35), transparent 70%);
+    --gradient-surface: linear-gradient(180deg, hsl(224 40% 11% / 0.85), hsl(224 45% 7% / 0.85));
+
+    /* Shadows */
+    --shadow-glow: 0 0 24px hsl(210 100% 60% / 0.45), 0 0 60px hsl(268 90% 65% / 0.25);
+    --shadow-elev: 0 20px 50px -20px hsl(224 80% 2% / 0.8);
+
+    --sidebar-background: 224 47% 6%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 100% 60%;
+    --sidebar-primary-foreground: 224 47% 6%;
+    --sidebar-accent: 224 30% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 30% 18%;
+    --sidebar-ring: 210 100% 60%;
+  }
+
+  /* App is dark-by-default; keep .dark identical so toggles are inert */
+  .dark {
+    --background: 224 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 224 40% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 224 45% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 100% 60%;
+    --primary-foreground: 224 47% 6%;
+    --secondary: 268 90% 65%;
+    --secondary-foreground: 224 47% 6%;
+    --muted: 224 30% 14%;
+    --muted-foreground: 215 25% 70%;
+    --accent: 188 95% 55%;
+    --accent-foreground: 224 47% 6%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 30% 18%;
+    --input: 220 30% 16%;
+    --ring: 210 100% 60%;
   }
 }
 
@@ -99,7 +87,131 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
+
+@layer components {
+  .glass {
+    background: var(--gradient-surface);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: var(--shadow-elev);
+  }
+
+  .glow-ring {
+    box-shadow: var(--shadow-glow);
+  }
+}
+
+/* Leaflet overrides — dark theme polish */
+.leaflet-container {
+  background: hsl(var(--background));
+  font-family: inherit;
+  outline: none;
+}
+
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-elev) !important;
+}
+
+.leaflet-control-zoom a {
+  background: hsl(var(--card) / 0.85) !important;
+  color: hsl(var(--foreground)) !important;
+  backdrop-filter: blur(10px);
+  border-color: hsl(var(--border)) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.leaflet-control-attribution {
+  background: hsl(var(--background) / 0.6) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  backdrop-filter: blur(8px);
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Route line glow */
+.route-glow {
+  filter: drop-shadow(0 0 6px hsl(210 100% 60% / 0.8))
+    drop-shadow(0 0 14px hsl(268 90% 65% / 0.6));
+}
+
+/* POI marker pulse */
+@keyframes pulse-ring {
+  0% { transform: scale(0.85); opacity: 0.9; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.poi-marker {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--background));
+  position: relative;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 6px 16px hsl(224 80% 2% / 0.6);
+}
+
+.poi-marker::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  animation: pulse-ring 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+.poi-gas { background: linear-gradient(135deg, hsl(210 100% 60%), hsl(188 95% 55%)); color: hsl(210 100% 60%); }
+.poi-food { background: linear-gradient(135deg, hsl(330 90% 65%), hsl(268 90% 65%)); color: hsl(330 90% 65%); }
+.poi-rest { background: linear-gradient(135deg, hsl(150 80% 55%), hsl(188 95% 55%)); color: hsl(150 80% 55%); }
+
+.user-marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  border: 3px solid hsl(var(--background));
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.25), 0 0 24px hsl(var(--primary) / 0.7);
+}
+
+.endpoint-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 6px 16px hsl(224 80% 2% / 0.7);
+}
+
+.endpoint-marker.start { background: linear-gradient(135deg, hsl(150 80% 55%), hsl(188 95% 55%)); }
+.endpoint-marker.end { background: var(--gradient-route); }
+.endpoint-marker.stop { background: linear-gradient(135deg, hsl(45 95% 60%), hsl(20 95% 60%)); }
+
+/* Custom scrollbar inside sheet */
+.thin-scroll::-webkit-scrollbar { width: 6px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 6px; }
