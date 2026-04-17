@@ -18,7 +18,9 @@ interface MapViewProps {
   origin: LngLat | null;
   destination: LngLat | null;
   stops: LngLat[];
-  route: RouteResult | null;
+  routes: RouteResult[]; // index 0 = active, rest = alternatives
+  activeRouteIdx: number;
+  onSelectRoute: (idx: number) => void;
   pois: Poi[];
   corridor: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
   focusBounds: L.LatLngBoundsExpression | null;
