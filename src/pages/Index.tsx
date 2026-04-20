@@ -2,18 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { toast } from "sonner";
 import {
-  Compass,
   Crosshair,
   Loader2,
   MapPin,
   Home as HomeIcon,
   Briefcase,
-  Navigation as NavIcon,
   Star,
+  ArrowLeft,
+  Plus,
+  X,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
-import { BottomSheet } from "@/components/BottomSheet";
+import { TripSummary, TripControls } from "@/components/BottomSheet";
+import { DraggableSheet } from "@/components/DraggableSheet";
 import { Splash } from "@/components/Splash";
 import { Onboarding } from "@/components/Onboarding";
 import { SettingsMenu } from "@/components/SettingsMenu";
