@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   Plus,
   X,
+  Car,
+  Footprints,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
@@ -19,10 +21,12 @@ import { DraggableSheet } from "@/components/DraggableSheet";
 import { Splash } from "@/components/Splash";
 import { Onboarding } from "@/components/Onboarding";
 import { SettingsMenu } from "@/components/SettingsMenu";
+import { NavigationOverlay } from "@/components/NavigationOverlay";
 import {
   buildForwardCorridor,
   fetchPoisInBbox,
   fetchRoutes,
+  findNextStep,
   filterForwardPois,
   fmtDuration,
   fmtKm,
@@ -32,8 +36,9 @@ import {
   type PoiCategory,
   type RouteResult,
   type SearchResult,
+  type TravelProfile,
 } from "@/lib/navigation";
-import { getCurrentPosition, type GeoErrorReason } from "@/lib/geo";
+import { getCurrentPosition, watchPosition, type GeoErrorReason, type GeoWatch } from "@/lib/geo";
 import {
   addRecent,
   clearRecents,
@@ -84,6 +89,11 @@ const Index = () => {
   const [navigating, setNavigating] = useState(false);
   const [focusBounds, setFocusBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const poiAbort = useRef<AbortController | null>(null);
+
+  // Travel profile + live navigation
+  const [profile, setProfile] = useState<TravelProfile>("driving");
+  const [following, setFollowing] = useState(true);
+  const watchRef = useRef<GeoWatch | null>(null);
 
   // Persistence-backed state
   const [home, setHomeState] = useState<SearchResult | null>(() => getHome());
@@ -176,7 +186,7 @@ const Index = () => {
           ...stops.map((s) => [s.lon, s.lat] as LngLat),
           [destination.lon, destination.lat],
         ];
-        const { routes: rs } = await fetchRoutes(points, true);
+        const { routes: rs } = await fetchRoutes(points, true, profile);
         if (cancelled) return;
         setRoutes(rs);
         setActiveRouteIdx(0);
@@ -196,7 +206,7 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, [originCoord, destination, stops]);
+  }, [originCoord, destination, stops, profile]);
 
   // ---- Fetch + filter POIs against the *active* route ----
   useEffect(() => {
@@ -394,6 +404,72 @@ const Index = () => {
     setSheetSnap(0);
   };
 
+  // ---- Live navigation: subscribe to GPS while navigating ----
+  useEffect(() => {
+    if (!navigating) {
+      watchRef.current?.stop();
+      watchRef.current = null;
+      return;
+    }
+    let stopped = false;
+    setFollowing(true);
+    (async () => {
+      const w = await watchPosition(
+        ({ pos }) => {
+          if (stopped) return;
+          setUserPos(pos);
+        },
+        (reason) => {
+          if (reason === "denied") {
+            toast.error("Location permission was revoked. Navigation paused.");
+            setNavigating(false);
+          }
+        },
+      );
+      if (stopped) {
+        w.stop();
+      } else {
+        watchRef.current = w;
+      }
+    })();
+    return () => {
+      stopped = true;
+      watchRef.current?.stop();
+      watchRef.current = null;
+    };
+  }, [navigating]);
+
+  // ---- Compute the upcoming step from the active route + live position ----
+  const navInfo = useMemo(() => {
+    if (!navigating || !activeRoute || !activeRoute.steps?.length || !userPos) return null;
+    return findNextStep(activeRoute.steps, activeRoute.geometry, userPos);
+  }, [navigating, activeRoute, userPos]);
+
+  // ---- Auto-stop nav when arrived ----
+  useEffect(() => {
+    if (!navigating || !navInfo) return;
+    if (navInfo.remainingKm * 1000 < 25) {
+      toast.success("You have arrived!");
+      // small delay so the user sees the arrival banner
+      const t = setTimeout(() => setNavigating(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [navigating, navInfo]);
+
+  const handleStartNav = () => {
+    if (!activeRoute) return;
+    setNavigating(true);
+    setSheetSnap(0); // collapse the sheet so the map fills the screen
+  };
+
+  const handleExitNav = () => {
+    setNavigating(false);
+    setFollowing(false);
+    setSheetSnap(1);
+  };
+
+  const handleRecenter = () => setFollowing(true);
+
   return (
     <>
       {splashing && <Splash onDone={() => setSplashing(false)} />}
@@ -425,6 +501,9 @@ const Index = () => {
         corridor={corridor}
         focusBounds={focusBounds}
         mapStyle={mapStyle}
+        followUser={navigating && following}
+        followZoom={profile === "walking" ? 18 : 17}
+        onUserPan={navigating ? () => setFollowing(false) : undefined}
       />
 
       {/* === Top: search pill (Google-Maps style) === */}
@@ -677,8 +756,8 @@ const Index = () => {
         </div>
       )}
 
-      {/* === Bottom: draggable trip sheet (only when a route exists) === */}
-      {activeRoute && (
+      {/* === Bottom: draggable trip sheet (only when a route exists and not navigating) === */}
+      {activeRoute && !navigating && (
         <DraggableSheet
           snap={sheetSnap}
           onSnapChange={setSheetSnap}
@@ -692,6 +771,34 @@ const Index = () => {
             />
           }
         >
+          {/* Travel profile selector (Drive / Walk) */}
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => setProfile("driving")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all",
+                profile === "driving"
+                  ? "border-primary/60 bg-primary/15 text-primary shadow-glow"
+                  : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+              )}
+            >
+              <Car className="h-4 w-4" />
+              Drive
+            </button>
+            <button
+              onClick={() => setProfile("walking")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all",
+                profile === "walking"
+                  ? "border-secondary/60 bg-secondary/15 text-secondary shadow-glow"
+                  : "border-border bg-muted/40 text-muted-foreground hover:border-secondary/40 hover:text-foreground",
+              )}
+            >
+              <Footprints className="h-4 w-4" />
+              Walk
+            </button>
+          </div>
+
           <TripControls
             route={activeRoute}
             poiCategory={poiCategory}
@@ -700,10 +807,26 @@ const Index = () => {
             onPickPoi={setPoiCategory}
             onAddStop={() => setAdding((v) => !v)}
             onAddPoiAsStop={handleAddPoiAsStop}
-            onStartNav={() => setNavigating((v) => !v)}
+            onStartNav={handleStartNav}
             isNavigating={navigating}
           />
         </DraggableSheet>
+      )}
+
+      {/* === Live navigation overlay === */}
+      {navigating && activeRoute && (
+        <NavigationOverlay
+          route={activeRoute}
+          profile={profile}
+          step={navInfo?.step ?? null}
+          distanceToManeuver={navInfo?.distanceToManeuver ?? 0}
+          remainingMeters={(navInfo?.remainingKm ?? 0) * 1000}
+          remainingSec={navInfo?.remainingSec ?? activeRoute.duration}
+          offRouteMeters={navInfo?.offRouteMeters ?? 0}
+          following={following}
+          onRecenter={handleRecenter}
+          onExit={handleExitNav}
+        />
       )}
 
       {/* === Floating "Where to?" FAB when no route, no panel === */}
