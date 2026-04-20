@@ -756,8 +756,8 @@ const Index = () => {
         </div>
       )}
 
-      {/* === Bottom: draggable trip sheet (only when a route exists) === */}
-      {activeRoute && (
+      {/* === Bottom: draggable trip sheet (only when a route exists and not navigating) === */}
+      {activeRoute && !navigating && (
         <DraggableSheet
           snap={sheetSnap}
           onSnapChange={setSheetSnap}
@@ -771,6 +771,34 @@ const Index = () => {
             />
           }
         >
+          {/* Travel profile selector (Drive / Walk) */}
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => setProfile("driving")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all",
+                profile === "driving"
+                  ? "border-primary/60 bg-primary/15 text-primary shadow-glow"
+                  : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+              )}
+            >
+              <Car className="h-4 w-4" />
+              Drive
+            </button>
+            <button
+              onClick={() => setProfile("walking")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all",
+                profile === "walking"
+                  ? "border-secondary/60 bg-secondary/15 text-secondary shadow-glow"
+                  : "border-border bg-muted/40 text-muted-foreground hover:border-secondary/40 hover:text-foreground",
+              )}
+            >
+              <Footprints className="h-4 w-4" />
+              Walk
+            </button>
+          </div>
+
           <TripControls
             route={activeRoute}
             poiCategory={poiCategory}
@@ -779,10 +807,26 @@ const Index = () => {
             onPickPoi={setPoiCategory}
             onAddStop={() => setAdding((v) => !v)}
             onAddPoiAsStop={handleAddPoiAsStop}
-            onStartNav={() => setNavigating((v) => !v)}
+            onStartNav={handleStartNav}
             isNavigating={navigating}
           />
         </DraggableSheet>
+      )}
+
+      {/* === Live navigation overlay === */}
+      {navigating && activeRoute && (
+        <NavigationOverlay
+          route={activeRoute}
+          profile={profile}
+          step={navInfo?.step ?? null}
+          distanceToManeuver={navInfo?.distanceToManeuver ?? 0}
+          remainingMeters={(navInfo?.remainingKm ?? 0) * 1000}
+          remainingSec={navInfo?.remainingSec ?? activeRoute.duration}
+          offRouteMeters={navInfo?.offRouteMeters ?? 0}
+          following={following}
+          onRecenter={handleRecenter}
+          onExit={handleExitNav}
+        />
       )}
 
       {/* === Floating "Where to?" FAB when no route, no panel === */}
