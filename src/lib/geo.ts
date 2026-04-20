@@ -67,3 +67,80 @@ export async function getCurrentPosition(): Promise<GeoResult> {
     );
   });
 }
+
+export interface GeoWatch {
+  /** Call to stop the watch. */
+  stop: () => void;
+}
+
+/**
+ * Continuously stream high-accuracy positions to the callback. Works on web
+ * (navigator.geolocation.watchPosition) and Capacitor native.
+ */
+export async function watchPosition(
+  onUpdate: (r: GeoResult & { heading?: number | null; speed?: number | null }) => void,
+  onError?: (reason: GeoErrorReason) => void,
+): Promise<GeoWatch> {
+  if (isNative()) {
+    const { Geolocation } = await import("@capacitor/geolocation");
+    try {
+      const perm = await Geolocation.checkPermissions();
+      if (perm.location !== "granted") {
+        const req = await Geolocation.requestPermissions({ permissions: ["location"] });
+        if (req.location !== "granted") {
+          onError?.("denied");
+          return { stop: () => {} };
+        }
+      }
+      const id = await Geolocation.watchPosition(
+        { enableHighAccuracy: true, timeout: 10000 },
+        (pos, err) => {
+          if (err) {
+            onError?.("unavailable");
+            return;
+          }
+          if (!pos) return;
+          onUpdate({
+            pos: [pos.coords.longitude, pos.coords.latitude],
+            accuracy: pos.coords.accuracy ?? 0,
+            heading: pos.coords.heading,
+            speed: pos.coords.speed,
+          });
+        },
+      );
+      return {
+        stop: () => {
+          Geolocation.clearWatch({ id }).catch(() => {});
+        },
+      };
+    } catch {
+      onError?.("unavailable");
+      return { stop: () => {} };
+    }
+  }
+
+  if (!("geolocation" in navigator)) {
+    onError?.("unsupported");
+    return { stop: () => {} };
+  }
+  const id = navigator.geolocation.watchPosition(
+    (pos) =>
+      onUpdate({
+        pos: [pos.coords.longitude, pos.coords.latitude],
+        accuracy: pos.coords.accuracy ?? 0,
+        heading: pos.coords.heading,
+        speed: pos.coords.speed,
+      }),
+    (err) => {
+      const reason: GeoErrorReason =
+        err.code === err.PERMISSION_DENIED
+          ? "denied"
+          : err.code === err.TIMEOUT
+            ? "timeout"
+            : "unavailable";
+      onError?.(reason);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 },
+  );
+  return { stop: () => navigator.geolocation.clearWatch(id) };
+}
