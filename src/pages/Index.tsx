@@ -186,7 +186,7 @@ const Index = () => {
           ...stops.map((s) => [s.lon, s.lat] as LngLat),
           [destination.lon, destination.lat],
         ];
-        const { routes: rs } = await fetchRoutes(points, true);
+        const { routes: rs } = await fetchRoutes(points, true, profile);
         if (cancelled) return;
         setRoutes(rs);
         setActiveRouteIdx(0);
@@ -206,7 +206,7 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, [originCoord, destination, stops]);
+  }, [originCoord, destination, stops, profile]);
 
   // ---- Fetch + filter POIs against the *active* route ----
   useEffect(() => {
