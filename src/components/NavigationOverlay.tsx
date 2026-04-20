@@ -103,7 +103,7 @@ export function NavigationOverlay({
       {/* Off-route warning */}
       {offRoute && !arrived && (
         <div className="pointer-events-none absolute inset-x-0 top-28 z-[750] flex justify-center px-3">
-          <div className="glass pointer-events-auto flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-300">
+          <div className="glass pointer-events-auto flex items-center gap-2 rounded-full border border-destructive/40 bg-destructive/15 px-3 py-1.5 text-xs font-medium text-destructive">
             <AlertTriangle className="h-3.5 w-3.5" />
             You appear to be off-route ({fmtKm(offRouteMeters)})
           </div>
