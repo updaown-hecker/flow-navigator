@@ -19,6 +19,29 @@ export interface RouteResult {
   duration: number; // seconds
   legs: { distance: number; duration: number }[];
   waypointOrder: number[]; // index map for trip reordering
+  steps?: RouteStep[];
+  profile?: TravelProfile;
+}
+
+export type TravelProfile = "driving" | "walking";
+
+export interface RouteStep {
+  /** Distance of this step in meters */
+  distance: number;
+  /** Duration in seconds */
+  duration: number;
+  /** Geometry of just this step */
+  geometry: GeoJSON.LineString;
+  /** Plain English instruction, e.g. "Turn right onto Main St" */
+  instruction: string;
+  /** OSRM maneuver type: turn, new name, depart, arrive, merge, etc. */
+  maneuverType: string;
+  /** OSRM maneuver modifier: left, right, straight, slight left, etc. */
+  maneuverModifier?: string;
+  /** Street name being entered */
+  name: string;
+  /** [lon, lat] of the maneuver point */
+  maneuverLocation: LngLat;
 }
 
 export type PoiCategory = "gas" | "food" | "rest";
@@ -197,11 +220,12 @@ export async function searchPlaces(
 export async function fetchRoute(
   points: LngLat[],
   alternatives = false,
+  profile: TravelProfile = "driving",
 ): Promise<RouteResult[]> {
   if (points.length < 2) throw new Error("Need at least 2 points");
   const coords = points.map((p) => `${p[0]},${p[1]}`).join(";");
   const altParam = alternatives ? "true" : "false";
-  const url = `${OSRM}/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=${altParam}&steps=false`;
+  const url = `${OSRM}/route/v1/${profile}/${coords}?overview=full&geometries=geojson&alternatives=${altParam}&steps=true`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Route failed");
   const data = await res.json();
@@ -210,14 +234,47 @@ export async function fetchRoute(
     geometry: GeoJSON.LineString;
     distance: number;
     duration: number;
-    legs: Array<{ distance: number; duration: number }>;
-  }>).map((r) => ({
-    geometry: r.geometry,
-    distance: r.distance,
-    duration: r.duration,
-    legs: r.legs.map((l) => ({ distance: l.distance, duration: l.duration })),
-    waypointOrder: points.map((_, i) => i),
-  }));
+    legs: Array<{
+      distance: number;
+      duration: number;
+      steps?: Array<{
+        distance: number;
+        duration: number;
+        geometry: GeoJSON.LineString;
+        name: string;
+        maneuver: {
+          type: string;
+          modifier?: string;
+          location: [number, number];
+        };
+      }>;
+    }>;
+  }>).map((r) => {
+    const steps: RouteStep[] = [];
+    for (const leg of r.legs) {
+      for (const s of leg.steps ?? []) {
+        steps.push({
+          distance: s.distance,
+          duration: s.duration,
+          geometry: s.geometry,
+          name: s.name,
+          maneuverType: s.maneuver.type,
+          maneuverModifier: s.maneuver.modifier,
+          maneuverLocation: s.maneuver.location,
+          instruction: formatInstruction(s.maneuver.type, s.maneuver.modifier, s.name),
+        });
+      }
+    }
+    return {
+      geometry: r.geometry,
+      distance: r.distance,
+      duration: r.duration,
+      legs: r.legs.map((l) => ({ distance: l.distance, duration: l.duration })),
+      waypointOrder: points.map((_, i) => i),
+      steps,
+      profile,
+    };
+  });
 }
 
 // Get the primary route + (optionally) up to 2 alternatives. When stops are
@@ -227,6 +284,7 @@ export async function fetchRoute(
 export async function fetchRoutes(
   points: LngLat[],
   withAlternatives = true,
+  profile: TravelProfile = "driving",
 ): Promise<{ routes: RouteResult[]; waypointOrder: number[] }> {
   // 1. Optimal stop sequence (only matters if there are intermediate stops)
   let orderedPoints = points;
@@ -235,7 +293,7 @@ export async function fetchRoutes(
   if (points.length >= 3) {
     try {
       const coords = points.map((p) => `${p[0]},${p[1]}`).join(";");
-      const url = `${OSRM}/trip/v1/driving/${coords}?source=first&destination=last&roundtrip=false&overview=false`;
+      const url = `${OSRM}/trip/v1/${profile}/${coords}?source=first&destination=last&roundtrip=false&overview=false`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -254,8 +312,107 @@ export async function fetchRoutes(
   }
 
   // 2. Fetch primary + alternatives along the chosen waypoint order
-  const routes = await fetchRoute(orderedPoints, withAlternatives);
+  const routes = await fetchRoute(orderedPoints, withAlternatives, profile);
   return { routes, waypointOrder };
+}
+
+// ---------- Step formatting ----------
+function formatInstruction(type: string, modifier?: string, name?: string): string {
+  const street = name && name.trim().length > 0 ? ` onto ${name}` : "";
+  switch (type) {
+    case "depart":
+      return name ? `Head out on ${name}` : "Start your trip";
+    case "arrive":
+      return "You have arrived";
+    case "turn":
+      return `Turn ${modifier ?? "ahead"}${street}`;
+    case "new name":
+      return name ? `Continue on ${name}` : "Continue";
+    case "merge":
+      return `Merge ${modifier ?? "ahead"}${street}`;
+    case "on ramp":
+      return `Take the ramp ${modifier ?? "ahead"}${street}`;
+    case "off ramp":
+      return `Take the exit ${modifier ?? ""}${street}`.trim();
+    case "fork":
+      return `Keep ${modifier ?? "ahead"}${street}`;
+    case "end of road":
+      return `Turn ${modifier ?? "ahead"}${street}`;
+    case "continue":
+      return `Continue ${modifier ?? "straight"}${street}`;
+    case "roundabout":
+    case "rotary":
+      return `Enter the roundabout${street}`;
+    case "exit roundabout":
+    case "exit rotary":
+      return `Exit the roundabout${street}`;
+    default:
+      return name ? `Continue on ${name}` : "Continue";
+  }
+}
+
+// ---------- Live navigation helpers ----------
+
+/**
+ * Find the upcoming step on a route, given the user's current position.
+ * Returns the index, the step, distance to the maneuver in meters, and how
+ * far along the overall route the user is (km) so we can show a progress bar.
+ */
+export function findNextStep(
+  steps: RouteStep[],
+  routeGeom: GeoJSON.LineString,
+  userPos: LngLat,
+): {
+  index: number;
+  step: RouteStep | null;
+  distanceToManeuver: number; // meters
+  travelledKm: number;
+  remainingKm: number;
+  remainingSec: number;
+  offRouteMeters: number;
+} {
+  const line = turf.lineString(routeGeom.coordinates);
+  const userPt = turf.point(userPos);
+  const snapped = turf.nearestPointOnLine(line, userPt, { units: "kilometers" });
+  const travelledKm = snapped.properties.location ?? 0;
+  const totalKm = turf.length(line, { units: "kilometers" });
+  const remainingKm = Math.max(0, totalKm - travelledKm);
+  const offRouteMeters = (snapped.properties.dist ?? 0) * 1000;
+
+  // Find the first step whose maneuver point is still ahead of the user.
+  let index = -1;
+  let bestForwardKm = Infinity;
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    const sp = turf.nearestPointOnLine(line, turf.point(s.maneuverLocation), {
+      units: "kilometers",
+    });
+    const stepKm = sp.properties.location ?? 0;
+    const forward = stepKm - travelledKm;
+    if (forward > 0.01 && forward < bestForwardKm) {
+      bestForwardKm = forward;
+      index = i;
+    }
+  }
+
+  const step = index >= 0 ? steps[index] : null;
+  const distanceToManeuver =
+    step && bestForwardKm !== Infinity ? bestForwardKm * 1000 : 0;
+
+  // Estimate remaining time proportionally to remaining distance.
+  const totalSec = steps.reduce((acc, s) => acc + s.duration, 0);
+  const totalDistM = steps.reduce((acc, s) => acc + s.distance, 0) || totalKm * 1000;
+  const remainingSec = totalDistM > 0 ? (remainingKm * 1000 / totalDistM) * totalSec : 0;
+
+  return {
+    index,
+    step,
+    distanceToManeuver,
+    travelledKm,
+    remainingKm,
+    remainingSec,
+    offRouteMeters,
+  };
 }
 
 // ---------- Forward-flow corridor ----------
