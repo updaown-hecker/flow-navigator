@@ -90,6 +90,11 @@ const Index = () => {
   const [focusBounds, setFocusBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const poiAbort = useRef<AbortController | null>(null);
 
+  // Travel profile + live navigation
+  const [profile, setProfile] = useState<TravelProfile>("driving");
+  const [following, setFollowing] = useState(true);
+  const watchRef = useRef<GeoWatch | null>(null);
+
   // Persistence-backed state
   const [home, setHomeState] = useState<SearchResult | null>(() => getHome());
   const [work, setWorkState] = useState<SearchResult | null>(() => getWork());
