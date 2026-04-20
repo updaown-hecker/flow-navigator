@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { Poi, PoiCategory, RouteResult } from "@/lib/navigation";
 import { fmtDuration, fmtKm } from "@/lib/navigation";
 
-interface BottomSheetProps {
+interface SheetContentProps {
   route: RouteResult | null;
   destination: string | null;
   stopsCount: number;
@@ -27,56 +27,66 @@ const POI_META: Record<
   rest: { label: "Rest", icon: TreePalm, iconClass: "poi-rest" },
 };
 
-export function BottomSheet({
+/** Compact summary row — used as the always-visible header inside DraggableSheet. */
+export function TripSummary({
   route,
   destination,
   stopsCount,
+  onClearRoute,
+}: {
+  route: RouteResult | null;
+  destination: string | null;
+  stopsCount: number;
+  onClearRoute: () => void;
+}) {
+  if (!route) return null;
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-1 text-base font-semibold text-foreground">
+          {destination || "Route"}
+          {stopsCount > 0 && (
+            <span className="ml-2 rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-secondary">
+              +{stopsCount} stop{stopsCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex items-center gap-3 text-sm">
+          <span className="bg-gradient-route bg-clip-text text-base font-bold text-transparent">
+            {fmtDuration(route.duration)}
+          </span>
+          <span className="text-muted-foreground">{fmtKm(route.distance)}</span>
+        </div>
+      </div>
+      <button
+        onClick={onClearRoute}
+        className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label="Clear route"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/** Full controls — POI tabs, results, Start Nav. Renders inside the sheet's scroll body. */
+export function TripControls({
+  route,
   poiCategory,
   pois,
   poiLoading,
   onPickPoi,
   onAddStop,
   onAddPoiAsStop,
-  onClearRoute,
   onStartNav,
   isNavigating,
-}: BottomSheetProps) {
+}: Omit<SheetContentProps, "destination" | "stopsCount" | "onClearRoute">) {
   if (!route) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] flex justify-center px-3 pb-3">
-      <div className="glass pointer-events-auto w-full max-w-xl rounded-3xl p-4 animate-slide-up">
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
-
-        {/* Trip summary */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="line-clamp-1 text-base font-semibold text-foreground">
-              {destination || "Route"}
-              {stopsCount > 0 && (
-                <span className="ml-2 rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-secondary">
-                  +{stopsCount} stop{stopsCount > 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-            <div className="mt-1 flex items-center gap-3 text-sm">
-              <span className="bg-gradient-route bg-clip-text text-base font-bold text-transparent">
-                {fmtDuration(route.duration)}
-              </span>
-              <span className="text-muted-foreground">{fmtKm(route.distance)}</span>
-            </div>
-          </div>
-          <button
-            onClick={onClearRoute}
-            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Clear route"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
+    <div className="w-full">
         {/* Forward-flow POI tabs */}
-        <div className="mt-4">
+        <div className="mt-2">
           <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             On the way
           </div>
@@ -113,7 +123,7 @@ export function BottomSheet({
 
         {/* POI results */}
         {poiCategory && (
-          <div className="thin-scroll mt-3 max-h-56 overflow-y-auto rounded-2xl bg-background/40 p-1">
+          <div className="mt-3 rounded-2xl bg-background/40 p-1">
             {poiLoading ? (
               <div className="flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -165,7 +175,6 @@ export function BottomSheet({
           <Navigation className="h-4 w-4" />
           {isNavigating ? "Navigating…" : "Start navigation"}
         </button>
-      </div>
     </div>
   );
 }
