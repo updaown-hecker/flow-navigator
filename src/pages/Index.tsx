@@ -501,6 +501,9 @@ const Index = () => {
         corridor={corridor}
         focusBounds={focusBounds}
         mapStyle={mapStyle}
+        followUser={navigating && following}
+        followZoom={profile === "walking" ? 18 : 17}
+        onUserPan={navigating ? () => setFollowing(false) : undefined}
       />
 
       {/* === Top: search pill (Google-Maps style) === */}
