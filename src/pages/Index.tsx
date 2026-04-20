@@ -404,6 +404,72 @@ const Index = () => {
     setSheetSnap(0);
   };
 
+  // ---- Live navigation: subscribe to GPS while navigating ----
+  useEffect(() => {
+    if (!navigating) {
+      watchRef.current?.stop();
+      watchRef.current = null;
+      return;
+    }
+    let stopped = false;
+    setFollowing(true);
+    (async () => {
+      const w = await watchPosition(
+        ({ pos }) => {
+          if (stopped) return;
+          setUserPos(pos);
+        },
+        (reason) => {
+          if (reason === "denied") {
+            toast.error("Location permission was revoked. Navigation paused.");
+            setNavigating(false);
+          }
+        },
+      );
+      if (stopped) {
+        w.stop();
+      } else {
+        watchRef.current = w;
+      }
+    })();
+    return () => {
+      stopped = true;
+      watchRef.current?.stop();
+      watchRef.current = null;
+    };
+  }, [navigating]);
+
+  // ---- Compute the upcoming step from the active route + live position ----
+  const navInfo = useMemo(() => {
+    if (!navigating || !activeRoute || !activeRoute.steps?.length || !userPos) return null;
+    return findNextStep(activeRoute.steps, activeRoute.geometry, userPos);
+  }, [navigating, activeRoute, userPos]);
+
+  // ---- Auto-stop nav when arrived ----
+  useEffect(() => {
+    if (!navigating || !navInfo) return;
+    if (navInfo.remainingKm * 1000 < 25) {
+      toast.success("You have arrived!");
+      // small delay so the user sees the arrival banner
+      const t = setTimeout(() => setNavigating(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [navigating, navInfo]);
+
+  const handleStartNav = () => {
+    if (!activeRoute) return;
+    setNavigating(true);
+    setSheetSnap(0); // collapse the sheet so the map fills the screen
+  };
+
+  const handleExitNav = () => {
+    setNavigating(false);
+    setFollowing(false);
+    setSheetSnap(1);
+  };
+
+  const handleRecenter = () => setFollowing(true);
+
   return (
     <>
       {splashing && <Splash onDone={() => setSplashing(false)} />}
