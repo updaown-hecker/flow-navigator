@@ -374,6 +374,26 @@ const Index = () => {
   const searchBias: LngLat | null =
     userPos ?? originCoord ?? (destination ? [destination.lon, destination.lat] : null);
 
+  // ---- UI state for the new Maps-style chrome ----
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [sheetSnap, setSheetSnap] = useState<0 | 1 | 2>(1);
+  const [hintDismissed, setHintDismissed] = useState(false);
+
+  // Auto-expand the sheet to mid when a route appears, collapse when cleared.
+  useEffect(() => {
+    if (destination) {
+      setSheetSnap(1);
+      setSearchOpen(false);
+    } else {
+      setSheetSnap(0);
+    }
+  }, [destination]);
+
+  const wrappedClearRoute = () => {
+    clearRoute();
+    setSheetSnap(0);
+  };
+
   return (
     <>
       {splashing && <Splash onDone={() => setSplashing(false)} />}
@@ -407,252 +427,295 @@ const Index = () => {
         mapStyle={mapStyle}
       />
 
-      {/* Top bar */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-[600] flex justify-center px-3 pt-3">
-        <div className="pointer-events-auto w-full max-w-xl space-y-2">
-          <div className="glass flex items-center justify-between gap-2 rounded-2xl px-4 py-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-route shadow-glow">
-                <Compass className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <div className="leading-tight">
-                <h1 className="text-sm font-bold tracking-tight text-foreground">Wayflow</h1>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Forward-flow OSM nav
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={navigateHome}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition",
-                  home
-                    ? "border-secondary/50 bg-secondary/15 text-secondary hover:brightness-110"
-                    : "border-border bg-muted/40 text-muted-foreground hover:border-secondary/40 hover:text-secondary",
-                )}
-                aria-label="Navigate home"
-              >
-                <HomeIcon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Home</span>
-              </button>
-              <button
-                onClick={navigateWork}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition",
-                  work
-                    ? "border-primary/50 bg-primary/15 text-primary hover:brightness-110"
-                    : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-primary",
-                )}
-                aria-label="Navigate to work"
-              >
-                <Briefcase className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Work</span>
-              </button>
-              <button
-                onClick={() => requestLocation(false)}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-                aria-label="Use my GPS location"
-              >
-                {locating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Crosshair className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">GPS</span>
-              </button>
-              <SettingsMenu
-                home={home}
-                work={work}
-                theme={theme}
-                mapStyle={mapStyle}
-                onEditHome={() => handleEditPlace("home")}
-                onEditWork={() => handleEditPlace("work")}
-                onClearRecents={handleClearRecents}
-                onResetOnboarding={handleResetOnboarding}
-                onChangeTheme={handleChangeTheme}
-                onChangeMapStyle={handleChangeMapStyle}
-              />
-            </div>
-          </div>
-
-          {/* From */}
-          {showOriginField ? (
-            <SearchBox
-              variant="compact"
-              value={originQuery}
-              onChange={setOriginQuery}
-              onSelect={handleSelectOrigin}
-              placeholder={
-                gpsBlocked ? "From — type a starting address" : "From — type an address or use GPS"
-              }
-              autoFocus={!userPos && !originPlace}
-              bias={searchBias}
-              recents={recents}
-            />
-          ) : (
-            <button
-              onClick={() => {
-                setOriginEditing(true);
-                setOriginQuery(originPlace?.shortLabel ?? "");
-              }}
-              className="glass flex h-12 w-full items-center gap-2 rounded-2xl px-4 text-left transition hover:border-primary/40"
-            >
-              <MapPin className="h-4 w-4 text-secondary" />
-              <span className="flex-1 truncate text-sm text-foreground">
-                <span className="text-muted-foreground">From: </span>
-                {originLabel}
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Change
-              </span>
-            </button>
-          )}
-
-          {/* To */}
-          <div className="relative">
-            <SearchBox
-              value={destinationQuery}
-              onChange={setDestinationQuery}
-              onSelect={handleSelectDestination}
-              onClear={clearRoute}
-              placeholder="Where to?"
-              bias={searchBias}
-              recents={recents}
+      {/* === Top: search pill (Google-Maps style) === */}
+      {!searchOpen && !destination && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] flex justify-center px-3 pt-3">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="glass pointer-events-auto flex h-12 w-full max-w-xl items-center gap-3 rounded-full px-5 text-left text-sm text-muted-foreground shadow-elev transition hover:border-primary/40"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-route">
+              <MapPin className="h-3.5 w-3.5 text-primary-foreground" />
+            </span>
+            <span className="flex-1 truncate">Search Wayflow</span>
+            <SettingsMenu
               home={home}
-              showHomeShortcut
-              onPickHome={navigateHome}
+              work={work}
+              theme={theme}
+              mapStyle={mapStyle}
+              onEditHome={() => handleEditPlace("home")}
+              onEditWork={() => handleEditPlace("work")}
+              onClearRecents={handleClearRecents}
+              onResetOnboarding={handleResetOnboarding}
+              onChangeTheme={handleChangeTheme}
+              onChangeMapStyle={handleChangeMapStyle}
             />
-            {destination && (
-              <div className="absolute right-12 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-                <button
-                  onClick={toggleWork}
-                  title={isDestWork ? "Remove Work" : "Save as Work"}
-                  className={cn(
-                    "rounded-full p-1.5 transition",
-                    isDestWork ? "text-primary" : "text-muted-foreground hover:text-primary",
-                  )}
-                  aria-label="Save as Work"
-                >
-                  <Briefcase
-                    className="h-4 w-4"
-                    fill={isDestWork ? "currentColor" : "none"}
+          </button>
+        </div>
+      )}
+
+      {/* === Top: full search panel (when opened or active route) === */}
+      {(searchOpen || destination) && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[700] flex justify-center px-3 pt-3">
+          <div className="pointer-events-auto w-full max-w-xl space-y-2">
+            <div className="glass flex items-center gap-2 rounded-2xl p-2">
+              <button
+                onClick={() => setSearchOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="Close search"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <div className="flex-1 space-y-2">
+                {/* From */}
+                {showOriginField ? (
+                  <SearchBox
+                    variant="compact"
+                    value={originQuery}
+                    onChange={setOriginQuery}
+                    onSelect={handleSelectOrigin}
+                    placeholder={
+                      gpsBlocked
+                        ? "From — type a starting address"
+                        : "From — type an address or use GPS"
+                    }
+                    autoFocus={!userPos && !originPlace}
+                    bias={searchBias}
+                    recents={recents}
                   />
-                </button>
-                <button
-                  onClick={toggleHome}
-                  title={isDestHome ? "Remove Home" : "Save as Home"}
-                  className={cn(
-                    "rounded-full p-1.5 transition",
-                    isDestHome ? "text-secondary" : "text-muted-foreground hover:text-secondary",
-                  )}
-                  aria-label="Save as Home"
-                >
-                  <Star
-                    className="h-4 w-4"
-                    fill={isDestHome ? "currentColor" : "none"}
+                ) : (
+                  <button
+                    onClick={() => {
+                      setOriginEditing(true);
+                      setOriginQuery(originPlace?.shortLabel ?? "");
+                    }}
+                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 text-left transition hover:border-primary/40"
+                  >
+                    <MapPin className="h-4 w-4 text-secondary" />
+                    <span className="flex-1 truncate text-sm text-foreground">
+                      <span className="text-muted-foreground">From: </span>
+                      {originLabel}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Change
+                    </span>
+                  </button>
+                )}
+
+                {/* To */}
+                <div className="relative">
+                  <SearchBox
+                    variant="compact"
+                    value={destinationQuery}
+                    onChange={setDestinationQuery}
+                    onSelect={handleSelectDestination}
+                    onClear={wrappedClearRoute}
+                    placeholder="Where to?"
+                    bias={searchBias}
+                    recents={recents}
+                    home={home}
+                    showHomeShortcut
+                    onPickHome={navigateHome}
+                    autoFocus={searchOpen && !destination}
                   />
-                </button>
+                  {destination && (
+                    <div className="absolute right-12 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                      <button
+                        onClick={toggleWork}
+                        title={isDestWork ? "Remove Work" : "Save as Work"}
+                        className={cn(
+                          "rounded-full p-1.5 transition",
+                          isDestWork
+                            ? "text-primary"
+                            : "text-muted-foreground hover:text-primary",
+                        )}
+                        aria-label="Save as Work"
+                      >
+                        <Briefcase
+                          className="h-4 w-4"
+                          fill={isDestWork ? "currentColor" : "none"}
+                        />
+                      </button>
+                      <button
+                        onClick={toggleHome}
+                        title={isDestHome ? "Remove Home" : "Save as Home"}
+                        className={cn(
+                          "rounded-full p-1.5 transition",
+                          isDestHome
+                            ? "text-secondary"
+                            : "text-muted-foreground hover:text-secondary",
+                        )}
+                        aria-label="Save as Home"
+                      >
+                        <Star
+                          className="h-4 w-4"
+                          fill={isDestHome ? "currentColor" : "none"}
+                        />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {adding && (
+                  <SearchBox
+                    variant="compact"
+                    autoFocus
+                    value={stopQuery}
+                    onChange={setStopQuery}
+                    onSelect={handleAddStopSelect}
+                    placeholder="Add a stop along the way…"
+                    bias={searchBias}
+                    recents={recents}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Route alternatives picker (only when route active) */}
+            {routes.length > 1 && (
+              <div className="glass thin-scroll flex gap-2 overflow-x-auto rounded-2xl p-2">
+                {routes.map((r, idx) => {
+                  const active = idx === activeRouteIdx;
+                  return (
+                    <button
+                      key={`route-${idx}`}
+                      onClick={() => setActiveRouteIdx(idx)}
+                      className={cn(
+                        "flex shrink-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-all",
+                        active
+                          ? "border-primary/60 bg-primary/15 shadow-glow"
+                          : "border-border bg-muted/40 hover:border-primary/40",
+                      )}
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {idx === 0 ? "Fastest" : `Alt ${idx}`}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-sm font-bold",
+                          active
+                            ? "bg-gradient-route bg-clip-text text-transparent"
+                            : "text-foreground",
+                        )}
+                      >
+                        {fmtDuration(r.duration)}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {fmtKm(r.distance)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {routeLoading && (
+              <div className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating routes…
               </div>
             )}
           </div>
-
-          {adding && (
-            <SearchBox
-              variant="compact"
-              autoFocus
-              value={stopQuery}
-              onChange={setStopQuery}
-              onSelect={handleAddStopSelect}
-              placeholder="Add a stop along the way…"
-              bias={searchBias}
-              recents={recents}
-            />
-          )}
-
-          {/* Route alternatives picker */}
-          {routes.length > 1 && (
-            <div className="glass flex gap-2 overflow-x-auto rounded-2xl p-2 thin-scroll">
-              {routes.map((r, idx) => {
-                const active = idx === activeRouteIdx;
-                return (
-                  <button
-                    key={`route-${idx}`}
-                    onClick={() => setActiveRouteIdx(idx)}
-                    className={cn(
-                      "flex shrink-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-all",
-                      active
-                        ? "border-primary/60 bg-primary/15 shadow-glow"
-                        : "border-border bg-muted/40 hover:border-primary/40",
-                    )}
-                  >
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {idx === 0 ? "Fastest" : `Alt ${idx}`}
-                    </span>
-                    <span
-                      className={cn(
-                        "text-sm font-bold",
-                        active
-                          ? "bg-gradient-route bg-clip-text text-transparent"
-                          : "text-foreground",
-                      )}
-                    >
-                      {fmtDuration(r.duration)}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {fmtKm(r.distance)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {!destination && !routeLoading && originCoord && (
-            <div className="glass mt-1 flex items-start gap-2.5 rounded-2xl px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-              <NavIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>
-                Search a destination, tap{" "}
-                <span className="font-semibold text-secondary">Home</span> for your saved address,
-                or pick <span className="font-semibold text-primary">Gas / Food / Rest</span> after
-                a route is set to find on-the-way stops.
-              </span>
-            </div>
-          )}
-
-          {!originCoord && !locating && (
-            <div className="glass mt-1 flex items-start gap-2.5 rounded-2xl px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
-              <span>
-                Location unavailable here. Type a starting address in{" "}
-                <span className="font-semibold text-foreground">From</span> — on a real device
-                (Android/iOS build or published web app), GPS will work natively.
-              </span>
-            </div>
-          )}
-
-          {routeLoading && (
-            <div className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating routes…
-            </div>
-          )}
         </div>
-      </header>
+      )}
 
-      <BottomSheet
-        route={activeRoute}
-        destination={destination?.shortLabel ?? null}
-        stopsCount={stops.length}
-        poiCategory={poiCategory}
-        pois={pois}
-        poiLoading={poiLoading}
-        onPickPoi={setPoiCategory}
-        onAddStop={() => setAdding((v) => !v)}
-        onAddPoiAsStop={handleAddPoiAsStop}
-        onClearRoute={clearRoute}
-        onStartNav={() => setNavigating((v) => !v)}
-        isNavigating={navigating}
-      />
+      {/* === Floating right-side action stack (always visible) === */}
+      <div className="pointer-events-none absolute right-3 top-20 z-[650] flex flex-col gap-2">
+        <button
+          onClick={navigateHome}
+          className={cn(
+            "pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full transition hover:border-secondary/50",
+            home ? "text-secondary" : "text-muted-foreground",
+          )}
+          aria-label="Navigate home"
+          title="Home"
+        >
+          <HomeIcon className="h-4 w-4" />
+        </button>
+        <button
+          onClick={navigateWork}
+          className={cn(
+            "pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full transition hover:border-primary/50",
+            work ? "text-primary" : "text-muted-foreground",
+          )}
+          aria-label="Navigate to work"
+          title="Work"
+        >
+          <Briefcase className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => requestLocation(false)}
+          className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:border-primary/50 hover:text-primary"
+          aria-label="Use my GPS location"
+          title="My location"
+        >
+          {locating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Crosshair className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+
+      {/* === Dismissible hint pill (only when no route + no GPS) === */}
+      {!destination && !originCoord && !locating && !hintDismissed && !searchOpen && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-24 z-[550] flex justify-center px-3">
+          <div className="glass pointer-events-auto flex max-w-md items-start gap-2.5 rounded-2xl px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+            <span className="flex-1">
+              Location unavailable here. Tap{" "}
+              <span className="font-semibold text-foreground">Search Wayflow</span> to type a
+              starting address.
+            </span>
+            <button
+              onClick={() => setHintDismissed(true)}
+              className="-m-1 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* === Bottom: draggable trip sheet (only when a route exists) === */}
+      {activeRoute && (
+        <DraggableSheet
+          snap={sheetSnap}
+          onSnapChange={setSheetSnap}
+          snapPoints={[14, 48, 88]}
+          header={
+            <TripSummary
+              route={activeRoute}
+              destination={destination?.shortLabel ?? null}
+              stopsCount={stops.length}
+              onClearRoute={wrappedClearRoute}
+            />
+          }
+        >
+          <TripControls
+            route={activeRoute}
+            poiCategory={poiCategory}
+            pois={pois}
+            poiLoading={poiLoading}
+            onPickPoi={setPoiCategory}
+            onAddStop={() => setAdding((v) => !v)}
+            onAddPoiAsStop={handleAddPoiAsStop}
+            onStartNav={() => setNavigating((v) => !v)}
+            isNavigating={navigating}
+          />
+        </DraggableSheet>
+      )}
+
+      {/* === Floating "Where to?" FAB when no route, no panel === */}
+      {!destination && !searchOpen && (
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="fixed bottom-6 right-3 z-[600] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-route text-primary-foreground shadow-glow transition hover:brightness-110 sm:hidden"
+          aria-label="Search"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      )}
       </main>
     </>
   );
