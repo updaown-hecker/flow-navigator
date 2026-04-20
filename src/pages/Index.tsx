@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   Plus,
   X,
+  Car,
+  Footprints,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
@@ -19,10 +21,12 @@ import { DraggableSheet } from "@/components/DraggableSheet";
 import { Splash } from "@/components/Splash";
 import { Onboarding } from "@/components/Onboarding";
 import { SettingsMenu } from "@/components/SettingsMenu";
+import { NavigationOverlay } from "@/components/NavigationOverlay";
 import {
   buildForwardCorridor,
   fetchPoisInBbox,
   fetchRoutes,
+  findNextStep,
   filterForwardPois,
   fmtDuration,
   fmtKm,
@@ -32,8 +36,9 @@ import {
   type PoiCategory,
   type RouteResult,
   type SearchResult,
+  type TravelProfile,
 } from "@/lib/navigation";
-import { getCurrentPosition, type GeoErrorReason } from "@/lib/geo";
+import { getCurrentPosition, watchPosition, type GeoErrorReason, type GeoWatch } from "@/lib/geo";
 import {
   addRecent,
   clearRecents,
