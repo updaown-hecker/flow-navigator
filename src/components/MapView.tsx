@@ -31,6 +31,8 @@ interface MapViewProps {
   followUser?: boolean;
   /** Zoom level used when followUser is true. */
   followZoom?: number;
+  /** Called when the user drags the map (used to break follow mode). */
+  onUserPan?: () => void;
 }
 
 // Divs as Leaflet icons
@@ -96,6 +98,19 @@ function FollowUser({ pos, zoom }: { pos: LngLat | null; zoom: number }) {
   return null;
 }
 
+/** Fires onPan when the user drags the map (not when we programmatically setView). */
+function PanDetector({ onPan }: { onPan: () => void }) {
+  const map = useMap();
+  useEffect(() => {
+    const handler = () => onPan();
+    map.on("dragstart", handler);
+    return () => {
+      map.off("dragstart", handler);
+    };
+  }, [map, onPan]);
+  return null;
+}
+
 export function MapView({
   userPos,
   origin,
@@ -110,6 +125,7 @@ export function MapView({
   mapStyle,
   followUser = false,
   followZoom = 17,
+  onUserPan,
 }: MapViewProps) {
   const center: [number, number] = userPos ? [userPos[1], userPos[0]] : [40.758, -73.9855];
 
@@ -156,6 +172,7 @@ export function MapView({
       {!followUser && <CenterOn pos={userPos} />}
       {!followUser && <FitBounds bounds={focusBounds} />}
       {followUser && <FollowUser pos={userPos} zoom={followZoom} />}
+      {onUserPan && <PanDetector onPan={onUserPan} />}
 
       {corridor && (
         <GeoJSONLayer
