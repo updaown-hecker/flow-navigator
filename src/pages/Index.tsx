@@ -9,7 +9,6 @@ import {
   Briefcase,
   Star,
   ArrowLeft,
-  Plus,
   X,
   Car,
   Footprints,
