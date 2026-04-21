@@ -95,6 +95,7 @@ const Index = () => {
   // Travel profile + live navigation
   const [profile, setProfile] = useState<TravelProfile>("driving");
   const [following, setFollowing] = useState(true);
+  const [speedKmh, setSpeedKmh] = useState<number | null>(null);
   const watchRef = useRef<GeoWatch | null>(null);
 
   // Persistence-backed state
