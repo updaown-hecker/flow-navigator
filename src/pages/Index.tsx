@@ -418,9 +418,10 @@ const Index = () => {
     setFollowing(true);
     (async () => {
       const w = await watchPosition(
-        ({ pos }) => {
+        ({ pos, speed }) => {
           if (stopped) return;
           setUserPos(pos);
+          setSpeedKmh(typeof speed === "number" && speed >= 0 ? speed * 3.6 : null);
         },
         (reason) => {
           if (reason === "denied") {
