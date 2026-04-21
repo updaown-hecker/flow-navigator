@@ -702,7 +702,15 @@ const Index = () => {
       )}
 
       {/* === Floating right-side action stack (always visible) === */}
-      <div className="pointer-events-none absolute right-3 top-20 z-[650] flex flex-col gap-2">
+      <div
+        className={cn(
+          "pointer-events-none absolute right-3 z-[650] flex flex-col gap-2 transition-[top] duration-200",
+          // Push lower when search panel / route header is shown so we don't sit on top of it
+          (searchOpen || destination) ? "top-44" : "top-20",
+          // Hide entirely while live navigating to free the map
+          navigating && "hidden",
+        )}
+      >
         {/* Settings is always reachable here, even with search open or a route active */}
         {(searchOpen || destination) && (
           <div className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full">
