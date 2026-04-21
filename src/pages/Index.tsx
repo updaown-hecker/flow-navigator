@@ -13,6 +13,8 @@ import {
   X,
   Car,
   Footprints,
+  Layers,
+  Navigation as NavigationIcon,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
@@ -509,14 +511,16 @@ const Index = () => {
       {/* === Top: search pill (Google-Maps style) === */}
       {!searchOpen && !destination && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] flex justify-center px-3 pt-3">
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="glass pointer-events-auto flex h-12 w-full max-w-xl items-center gap-3 rounded-full px-5 text-left text-sm text-muted-foreground shadow-elev transition hover:border-primary/40"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-route">
-              <MapPin className="h-3.5 w-3.5 text-primary-foreground" />
-            </span>
-            <span className="flex-1 truncate">Search Wayflow</span>
+          <div className="glass pointer-events-auto flex h-12 w-full max-w-xl items-center gap-2 rounded-full px-2 pl-5 text-sm text-muted-foreground shadow-elev">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="flex flex-1 items-center gap-3 text-left transition hover:text-foreground"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-route">
+                <MapPin className="h-3.5 w-3.5 text-primary-foreground" />
+              </span>
+              <span className="flex-1 truncate">Search Wayflow</span>
+            </button>
             <SettingsMenu
               home={home}
               work={work}
@@ -529,7 +533,7 @@ const Index = () => {
               onChangeTheme={handleChangeTheme}
               onChangeMapStyle={handleChangeMapStyle}
             />
-          </button>
+          </div>
         </div>
       )}
 
@@ -699,6 +703,37 @@ const Index = () => {
 
       {/* === Floating right-side action stack (always visible) === */}
       <div className="pointer-events-none absolute right-3 top-20 z-[650] flex flex-col gap-2">
+        {/* Settings is always reachable here, even with search open or a route active */}
+        {(searchOpen || destination) && (
+          <div className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full">
+            <SettingsMenu
+              home={home}
+              work={work}
+              theme={theme}
+              mapStyle={mapStyle}
+              onEditHome={() => handleEditPlace("home")}
+              onEditWork={() => handleEditPlace("work")}
+              onClearRecents={handleClearRecents}
+              onResetOnboarding={handleResetOnboarding}
+              onChangeTheme={handleChangeTheme}
+              onChangeMapStyle={handleChangeMapStyle}
+            />
+          </div>
+        )}
+        {/* Quick map-style cycle (Google-Maps "Layers") */}
+        <button
+          onClick={() => {
+            const order: MapStyleId[] = ["dark", "light", "streets", "satellite", "terrain"];
+            const next = order[(order.indexOf(mapStyle) + 1) % order.length];
+            handleChangeMapStyle(next);
+            toast.message(`Map: ${next[0].toUpperCase()}${next.slice(1)}`);
+          }}
+          className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:border-accent/50 hover:text-accent"
+          aria-label="Cycle map style"
+          title="Map layers"
+        >
+          <Layers className="h-4 w-4" />
+        </button>
         <button
           onClick={navigateHome}
           className={cn(
@@ -733,6 +768,17 @@ const Index = () => {
             <Crosshair className="h-4 w-4" />
           )}
         </button>
+        {/* Quick directions FAB to home (Google-Maps style) */}
+        {home && !destination && (
+          <button
+            onClick={navigateHome}
+            className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-secondary transition hover:border-secondary/50"
+            aria-label="Directions home"
+            title="Directions home"
+          >
+            <NavigationIcon className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* === Dismissible hint pill (only when no route + no GPS) === */}
