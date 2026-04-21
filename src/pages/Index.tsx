@@ -703,6 +703,37 @@ const Index = () => {
 
       {/* === Floating right-side action stack (always visible) === */}
       <div className="pointer-events-none absolute right-3 top-20 z-[650] flex flex-col gap-2">
+        {/* Settings is always reachable here, even with search open or a route active */}
+        {(searchOpen || destination) && (
+          <div className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full">
+            <SettingsMenu
+              home={home}
+              work={work}
+              theme={theme}
+              mapStyle={mapStyle}
+              onEditHome={() => handleEditPlace("home")}
+              onEditWork={() => handleEditPlace("work")}
+              onClearRecents={handleClearRecents}
+              onResetOnboarding={handleResetOnboarding}
+              onChangeTheme={handleChangeTheme}
+              onChangeMapStyle={handleChangeMapStyle}
+            />
+          </div>
+        )}
+        {/* Quick map-style cycle (Google-Maps "Layers") */}
+        <button
+          onClick={() => {
+            const order: MapStyleId[] = ["dark", "light", "streets", "satellite", "terrain"];
+            const next = order[(order.indexOf(mapStyle) + 1) % order.length];
+            handleChangeMapStyle(next);
+            toast.message(`Map: ${next[0].toUpperCase()}${next.slice(1)}`);
+          }}
+          className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:border-accent/50 hover:text-accent"
+          aria-label="Cycle map style"
+          title="Map layers"
+        >
+          <Layers className="h-4 w-4" />
+        </button>
         <button
           onClick={navigateHome}
           className={cn(
@@ -737,6 +768,17 @@ const Index = () => {
             <Crosshair className="h-4 w-4" />
           )}
         </button>
+        {/* Quick directions FAB to home (Google-Maps style) */}
+        {home && !destination && (
+          <button
+            onClick={navigateHome}
+            className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-secondary transition hover:border-secondary/50"
+            aria-label="Directions home"
+            title="Directions home"
+          >
+            <NavigationIcon className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* === Dismissible hint pill (only when no route + no GPS) === */}
