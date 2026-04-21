@@ -30,6 +30,8 @@ interface NavigationOverlayProps {
   onExit: () => void;
   /** Whether the map is currently in follow mode. */
   following: boolean;
+  /** Optional live speed in km/h (from GPS). */
+  speedKmh?: number | null;
 }
 
 function maneuverIcon(type: string, modifier?: string) {
@@ -55,10 +57,12 @@ export function NavigationOverlay({
   onRecenter,
   onExit,
   following,
+  speedKmh,
 }: NavigationOverlayProps) {
   const Icon = step ? maneuverIcon(step.maneuverType, step.maneuverModifier) : Flag;
   const arrived = !step || step.maneuverType === "arrive" || remainingMeters < 25;
   const offRoute = offRouteMeters > 60;
+  const showSpeed = !arrived && typeof speedKmh === "number" && speedKmh >= 0;
 
   return (
     <>
