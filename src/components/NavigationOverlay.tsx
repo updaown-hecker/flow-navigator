@@ -30,6 +30,8 @@ interface NavigationOverlayProps {
   onExit: () => void;
   /** Whether the map is currently in follow mode. */
   following: boolean;
+  /** Optional live speed in km/h (from GPS). */
+  speedKmh?: number | null;
 }
 
 function maneuverIcon(type: string, modifier?: string) {
@@ -55,10 +57,12 @@ export function NavigationOverlay({
   onRecenter,
   onExit,
   following,
+  speedKmh,
 }: NavigationOverlayProps) {
   const Icon = step ? maneuverIcon(step.maneuverType, step.maneuverModifier) : Flag;
   const arrived = !step || step.maneuverType === "arrive" || remainingMeters < 25;
   const offRoute = offRouteMeters > 60;
+  const showSpeed = !arrived && typeof speedKmh === "number" && speedKmh >= 0;
 
   return (
     <>
@@ -117,6 +121,20 @@ export function NavigationOverlay({
         >
           <ArrowUp className="h-5 w-5" />
         </button>
+      )}
+
+      {/* === Live speed pill (bottom-left) === */}
+      {showSpeed && (
+        <div className="pointer-events-none absolute bottom-20 left-3 z-[750]">
+          <div className="glass flex h-14 w-14 flex-col items-center justify-center rounded-full text-foreground shadow-elev">
+            <span className="text-lg font-bold leading-none">
+              {Math.round(speedKmh ?? 0)}
+            </span>
+            <span className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+              km/h
+            </span>
+          </div>
+        </div>
       )}
 
       {/* === Bottom ETA bar === */}
