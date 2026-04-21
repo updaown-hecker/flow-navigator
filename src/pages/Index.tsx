@@ -13,6 +13,8 @@ import {
   X,
   Car,
   Footprints,
+  Layers,
+  Navigation as NavigationIcon,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
 import { SearchBox } from "@/components/SearchBox";
