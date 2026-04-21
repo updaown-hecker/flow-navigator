@@ -123,6 +123,20 @@ export function NavigationOverlay({
         </button>
       )}
 
+      {/* === Live speed pill (bottom-left) === */}
+      {showSpeed && (
+        <div className="pointer-events-none absolute bottom-20 left-3 z-[750]">
+          <div className="glass flex h-14 w-14 flex-col items-center justify-center rounded-full text-foreground shadow-elev">
+            <span className="text-lg font-bold leading-none">
+              {Math.round(speedKmh ?? 0)}
+            </span>
+            <span className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+              km/h
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* === Bottom ETA bar === */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[800] flex justify-center px-2 pb-2">
         <div className="glass pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-2xl px-3 py-2 shadow-elev">
