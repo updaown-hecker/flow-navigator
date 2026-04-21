@@ -882,6 +882,7 @@ const Index = () => {
           following={following}
           onRecenter={handleRecenter}
           onExit={handleExitNav}
+          speedKmh={speedKmh}
         />
       )}
 
@@ -889,10 +890,11 @@ const Index = () => {
       {!destination && !searchOpen && (
         <button
           onClick={() => setSearchOpen(true)}
-          className="fixed bottom-6 right-3 z-[600] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-route text-primary-foreground shadow-glow transition hover:brightness-110 sm:hidden"
-          aria-label="Search"
+          className="group fixed bottom-6 right-3 z-[600] flex h-14 items-center gap-2 rounded-full bg-gradient-route pl-4 pr-5 text-primary-foreground shadow-glow transition-all hover:brightness-110 active:scale-95"
+          aria-label="Where to?"
         >
-          <Plus className="h-6 w-6" />
+          <NavigationIcon className="h-5 w-5" />
+          <span className="text-sm font-semibold">Where to?</span>
         </button>
       )}
       </main>
