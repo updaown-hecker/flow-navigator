@@ -12,7 +12,8 @@ import {
   X,
   Car,
   Footprints,
-  Layers,
+  Map as MapIcon,
+  Satellite,
   Navigation as NavigationIcon,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
