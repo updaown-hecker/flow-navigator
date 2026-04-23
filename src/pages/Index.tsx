@@ -12,7 +12,8 @@ import {
   X,
   Car,
   Footprints,
-  Layers,
+  Map as MapIcon,
+  Satellite,
   Navigation as NavigationIcon,
 } from "lucide-react";
 import { MapView } from "@/components/MapView";
@@ -810,20 +811,30 @@ const Index = () => {
             />
           </div>
         )}
-        {/* Quick map-style cycle (Google-Maps "Layers") */}
-        <button
-          onClick={() => {
-            const order: MapStyleId[] = ["dark", "light", "streets", "satellite", "terrain"];
-            const next = order[(order.indexOf(mapStyle) + 1) % order.length];
-            handleChangeMapStyle(next);
-            toast.message(`Map: ${next[0].toUpperCase()}${next.slice(1)}`);
-          }}
-          className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:border-accent/50 hover:text-accent"
-          aria-label="Cycle map style"
-          title="Map layers"
-        >
-          <Layers className="h-4 w-4" />
-        </button>
+        {/* Street ↔ Satellite quick toggle */}
+        {(() => {
+          const isSat = mapStyle === "satellite";
+          return (
+            <button
+              onClick={() => {
+                const next: MapStyleId = isSat ? "streets" : "satellite";
+                handleChangeMapStyle(next);
+                toast.message(isSat ? "Street view" : "Satellite view");
+              }}
+              className={cn(
+                "pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full transition",
+                isSat
+                  ? "border-accent/60 bg-accent/15 text-accent shadow-glow"
+                  : "text-muted-foreground hover:border-accent/50 hover:text-accent",
+              )}
+              aria-label={isSat ? "Switch to street view" : "Switch to satellite view"}
+              aria-pressed={isSat}
+              title={isSat ? "Satellite (tap for streets)" : "Streets (tap for satellite)"}
+            >
+              {isSat ? <MapIcon className="h-4 w-4" /> : <Satellite className="h-4 w-4" />}
+            </button>
+          );
+        })()}
         <button
           onClick={navigateHome}
           className={cn(
