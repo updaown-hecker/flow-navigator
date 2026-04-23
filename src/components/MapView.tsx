@@ -33,6 +33,8 @@ interface MapViewProps {
   followZoom?: number;
   /** Called when the user drags the map (used to break follow mode). */
   onUserPan?: () => void;
+  /** Fired when the user long-presses the map (~600ms hold). [lon, lat]. */
+  onLongPress?: (lonLat: LngLat) => void;
 }
 
 // Divs as Leaflet icons
@@ -111,6 +113,60 @@ function PanDetector({ onPan }: { onPan: () => void }) {
   return null;
 }
 
+/**
+ * Long-press / tap-and-hold detector. Fires once after ~600ms of holding
+ * down on the map without moving. Works for both touch and mouse.
+ */
+function LongPress({ onLongPress }: { onLongPress: (lonLat: LngLat) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let fired = false;
+
+    const start = (e: L.LeafletMouseEvent) => {
+      fired = false;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        fired = true;
+        onLongPress([e.latlng.lng, e.latlng.lat]);
+      }, 600);
+    };
+    const cancel = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+    const click = (e: L.LeafletMouseEvent) => {
+      // If a long-press already fired, swallow the click coords by ignoring.
+      if (fired) {
+        fired = false;
+        L.DomEvent.stopPropagation(e.originalEvent as unknown as Event);
+      }
+    };
+
+    map.on("mousedown", start);
+    map.on("mouseup", cancel);
+    map.on("mousemove", cancel);
+    map.on("dragstart", cancel);
+    map.on("zoomstart", cancel);
+    map.on("contextmenu", (e) => {
+      // Right-click / Android long-press emits contextmenu; honor it directly.
+      onLongPress([e.latlng.lng, e.latlng.lat]);
+      cancel();
+    });
+    map.on("click", click);
+    return () => {
+      cancel();
+      map.off("mousedown", start);
+      map.off("mouseup", cancel);
+      map.off("mousemove", cancel);
+      map.off("dragstart", cancel);
+      map.off("zoomstart", cancel);
+      map.off("click", click);
+    };
+  }, [map, onLongPress]);
+  return null;
+}
+
 export function MapView({
   userPos,
   origin,
@@ -126,6 +182,7 @@ export function MapView({
   followUser = false,
   followZoom = 17,
   onUserPan,
+  onLongPress,
 }: MapViewProps) {
   const center: [number, number] = userPos ? [userPos[1], userPos[0]] : [40.758, -73.9855];
 
@@ -173,6 +230,7 @@ export function MapView({
       {!followUser && <FitBounds bounds={focusBounds} />}
       {followUser && <FollowUser pos={userPos} zoom={followZoom} />}
       {onUserPan && <PanDetector onPan={onUserPan} />}
+      {onLongPress && <LongPress onLongPress={onLongPress} />}
 
       {corridor && (
         <GeoJSONLayer

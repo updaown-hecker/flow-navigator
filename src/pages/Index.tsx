@@ -32,6 +32,7 @@ import {
   fmtDuration,
   fmtKm,
   polygonBbox,
+  reverseGeocode,
   type LngLat,
   type Poi,
   type PoiCategory,
@@ -40,6 +41,7 @@ import {
   type TravelProfile,
 } from "@/lib/navigation";
 import { getCurrentPosition, watchPosition, type GeoErrorReason, type GeoWatch } from "@/lib/geo";
+import { keepAwakeOff, keepAwakeOn } from "@/lib/keepAwake";
 import {
   addRecent,
   clearRecents,
@@ -411,10 +413,12 @@ const Index = () => {
     if (!navigating) {
       watchRef.current?.stop();
       watchRef.current = null;
+      keepAwakeOff();
       return;
     }
     let stopped = false;
     setFollowing(true);
+    keepAwakeOn();
     (async () => {
       const w = await watchPosition(
         ({ pos, speed }) => {
@@ -439,8 +443,27 @@ const Index = () => {
       stopped = true;
       watchRef.current?.stop();
       watchRef.current = null;
+      keepAwakeOff();
     };
   }, [navigating]);
+
+  // ---- Long-press on the map → drop a pin and route to it ----
+  const handleMapLongPress = useCallback(
+    async (lonLat: LngLat) => {
+      if (navigating) return; // don't disrupt active nav
+      toast.message("Dropping pin…", { duration: 1200 });
+      try {
+        const place = await reverseGeocode(lonLat);
+        setDestination(place);
+        setDestinationQuery(place.shortLabel);
+        recordRecent(place);
+        toast.success(`Routing to ${place.shortLabel}`);
+      } catch {
+        toast.error("Couldn't drop a pin there.");
+      }
+    },
+    [navigating],
+  );
 
   // ---- Compute the upcoming step from the active route + live position ----
   const navInfo = useMemo(() => {
@@ -507,6 +530,7 @@ const Index = () => {
         followUser={navigating && following}
         followZoom={profile === "walking" ? 18 : 17}
         onUserPan={navigating ? () => setFollowing(false) : undefined}
+        onLongPress={handleMapLongPress}
       />
 
       {/* === Top: search pill (Google-Maps style) === */}
