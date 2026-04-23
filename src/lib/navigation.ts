@@ -216,6 +216,59 @@ export async function searchPlaces(
   return merged.slice(0, 10).map(({ source: _source, ...rest }) => rest);
 }
 
+// Reverse-geocode a [lon, lat] using Nominatim. Returns a SearchResult-shaped
+// object suitable for setting as origin/destination from a map long-press.
+export async function reverseGeocode(
+  lonLat: LngLat,
+  signal?: AbortSignal,
+): Promise<SearchResult> {
+  const [lon, lat] = lonLat;
+  const params = new URLSearchParams({
+    format: "json",
+    lat: String(lat),
+    lon: String(lon),
+    zoom: "18",
+    addressdetails: "1",
+  });
+  try {
+    const res = await fetch(`${NOMINATIM}/reverse?${params}`, {
+      signal,
+      headers: { "Accept-Language": navigator.language || "en" },
+    });
+    if (res.ok) {
+      const d = (await res.json()) as {
+        place_id?: number;
+        display_name?: string;
+        name?: string;
+        address?: Record<string, string>;
+      };
+      const short =
+        d.name ||
+        d.address?.road ||
+        d.address?.suburb ||
+        d.address?.city ||
+        d.display_name?.split(",")[0] ||
+        "Dropped pin";
+      return {
+        id: `pin-${d.place_id ?? `${lat.toFixed(5)},${lon.toFixed(5)}`}`,
+        label: d.display_name ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+        shortLabel: short,
+        lat,
+        lon,
+      };
+    }
+  } catch {
+    /* fall through */
+  }
+  return {
+    id: `pin-${lat.toFixed(5)},${lon.toFixed(5)}`,
+    label: `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    shortLabel: "Dropped pin",
+    lat,
+    lon,
+  };
+}
+
 // ---------- Routing (OSRM) ----------
 export async function fetchRoute(
   points: LngLat[],
