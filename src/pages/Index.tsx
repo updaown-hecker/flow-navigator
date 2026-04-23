@@ -96,6 +96,11 @@ const Index = () => {
   // Travel profile + live navigation
   const [profile, setProfile] = useState<TravelProfile>("driving");
   const [following, setFollowing] = useState(true);
+  // "Follow Me" toggle for the Crosshair button OUTSIDE of active navigation.
+  // When on, the map smoothly pans to keep the user's GPS centred; any manual
+  // drag turns it off.
+  const [followMe, setFollowMe] = useState(false);
+  const followMeWatchRef = useRef<GeoWatch | null>(null);
   const [speedKmh, setSpeedKmh] = useState<number | null>(null);
   const watchRef = useRef<GeoWatch | null>(null);
 
@@ -496,6 +501,49 @@ const Index = () => {
 
   const handleRecenter = () => setFollowing(true);
 
+  // ---- Follow-Me: stream GPS while toggled on (and not already navigating) ----
+  useEffect(() => {
+    if (!followMe || navigating) {
+      followMeWatchRef.current?.stop();
+      followMeWatchRef.current = null;
+      return;
+    }
+    let stopped = false;
+    (async () => {
+      const w = await watchPosition(
+        ({ pos }) => {
+          if (stopped) return;
+          setUserPos(pos);
+        },
+        (reason) => {
+          if (reason === "denied") {
+            toast.error("Location permission was revoked.");
+            setFollowMe(false);
+          }
+        },
+      );
+      if (stopped) w.stop();
+      else followMeWatchRef.current = w;
+    })();
+    return () => {
+      stopped = true;
+      followMeWatchRef.current?.stop();
+      followMeWatchRef.current = null;
+    };
+  }, [followMe, navigating]);
+
+  const handleToggleFollowMe = async () => {
+    if (followMe) {
+      setFollowMe(false);
+      toast.message("Follow Me off");
+      return;
+    }
+    // Make sure we have a fix before turning on
+    if (!userPos) await requestLocation(false);
+    setFollowMe(true);
+    toast.success("Follow Me on — drag the map to turn it off");
+  };
+
   return (
     <>
       {splashing && <Splash onDone={() => setSplashing(false)} />}
@@ -527,9 +575,18 @@ const Index = () => {
         corridor={corridor}
         focusBounds={focusBounds}
         mapStyle={mapStyle}
-        followUser={navigating && following}
-        followZoom={profile === "walking" ? 18 : 17}
-        onUserPan={navigating ? () => setFollowing(false) : undefined}
+        followUser={(navigating && following) || (!navigating && followMe)}
+        followZoom={navigating ? (profile === "walking" ? 18 : 17) : 16}
+        onUserPan={
+          navigating
+            ? () => setFollowing(false)
+            : followMe
+              ? () => {
+                  setFollowMe(false);
+                  toast.message("Follow Me off");
+                }
+              : undefined
+        }
         onLongPress={handleMapLongPress}
       />
 
@@ -790,10 +847,16 @@ const Index = () => {
           <Briefcase className="h-4 w-4" />
         </button>
         <button
-          onClick={() => requestLocation(false)}
-          className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:border-primary/50 hover:text-primary"
-          aria-label="Use my GPS location"
-          title="My location"
+          onClick={handleToggleFollowMe}
+          className={cn(
+            "pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full transition hover:border-primary/50",
+            followMe
+              ? "border-primary/60 bg-primary/15 text-primary shadow-glow"
+              : "text-muted-foreground hover:text-primary",
+          )}
+          aria-label={followMe ? "Turn off Follow Me" : "Follow my location"}
+          aria-pressed={followMe}
+          title={followMe ? "Follow Me on (tap to turn off)" : "Follow Me"}
         >
           {locating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
