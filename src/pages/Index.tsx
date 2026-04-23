@@ -96,6 +96,11 @@ const Index = () => {
   // Travel profile + live navigation
   const [profile, setProfile] = useState<TravelProfile>("driving");
   const [following, setFollowing] = useState(true);
+  // "Follow Me" toggle for the Crosshair button OUTSIDE of active navigation.
+  // When on, the map smoothly pans to keep the user's GPS centred; any manual
+  // drag turns it off.
+  const [followMe, setFollowMe] = useState(false);
+  const followMeWatchRef = useRef<GeoWatch | null>(null);
   const [speedKmh, setSpeedKmh] = useState<number | null>(null);
   const watchRef = useRef<GeoWatch | null>(null);
 
@@ -495,6 +500,49 @@ const Index = () => {
   };
 
   const handleRecenter = () => setFollowing(true);
+
+  // ---- Follow-Me: stream GPS while toggled on (and not already navigating) ----
+  useEffect(() => {
+    if (!followMe || navigating) {
+      followMeWatchRef.current?.stop();
+      followMeWatchRef.current = null;
+      return;
+    }
+    let stopped = false;
+    (async () => {
+      const w = await watchPosition(
+        ({ pos }) => {
+          if (stopped) return;
+          setUserPos(pos);
+        },
+        (reason) => {
+          if (reason === "denied") {
+            toast.error("Location permission was revoked.");
+            setFollowMe(false);
+          }
+        },
+      );
+      if (stopped) w.stop();
+      else followMeWatchRef.current = w;
+    })();
+    return () => {
+      stopped = true;
+      followMeWatchRef.current?.stop();
+      followMeWatchRef.current = null;
+    };
+  }, [followMe, navigating]);
+
+  const handleToggleFollowMe = async () => {
+    if (followMe) {
+      setFollowMe(false);
+      toast.message("Follow Me off");
+      return;
+    }
+    // Make sure we have a fix before turning on
+    if (!userPos) await requestLocation(false);
+    setFollowMe(true);
+    toast.success("Follow Me on — drag the map to turn it off");
+  };
 
   return (
     <>
