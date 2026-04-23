@@ -18,7 +18,7 @@
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug && echo \"\\nAPK: android/app/build/outputs/apk/debug/app-debug.apk\""
   },
   "dependencies": {
-    "@capacitor-community/keep-awake": "^6.0.0",
+    "@capacitor-community/keep-awake": "5.0.1",
     "@capacitor/android": "6.2.0",
     "@capacitor/cli": "6.2.0",
     "@capacitor/core": "6.2.0",
@@ -100,5 +100,10 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "@capacitor-community/keep-awake": {
+      "@capacitor/core": "$@capacitor/core"
+    }
   }
 }

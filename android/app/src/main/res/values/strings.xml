@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wayflow</string>
+    <string name="title_activity_main">Wayflow</string>
+    <string name="package_name">app.lovable.f20041204d4e45f08ad4881348437ce1</string>
+    <string name="custom_url_scheme">app.lovable.f20041204d4e45f08ad4881348437ce1</string>
+</resources>
