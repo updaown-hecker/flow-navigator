@@ -575,9 +575,18 @@ const Index = () => {
         corridor={corridor}
         focusBounds={focusBounds}
         mapStyle={mapStyle}
-        followUser={navigating && following}
-        followZoom={profile === "walking" ? 18 : 17}
-        onUserPan={navigating ? () => setFollowing(false) : undefined}
+        followUser={(navigating && following) || (!navigating && followMe)}
+        followZoom={navigating ? (profile === "walking" ? 18 : 17) : 16}
+        onUserPan={
+          navigating
+            ? () => setFollowing(false)
+            : followMe
+              ? () => {
+                  setFollowMe(false);
+                  toast.message("Follow Me off");
+                }
+              : undefined
+        }
         onLongPress={handleMapLongPress}
       />
 
@@ -838,10 +847,16 @@ const Index = () => {
           <Briefcase className="h-4 w-4" />
         </button>
         <button
-          onClick={() => requestLocation(false)}
-          className="pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:border-primary/50 hover:text-primary"
-          aria-label="Use my GPS location"
-          title="My location"
+          onClick={handleToggleFollowMe}
+          className={cn(
+            "pointer-events-auto glass flex h-10 w-10 items-center justify-center rounded-full transition hover:border-primary/50",
+            followMe
+              ? "border-primary/60 bg-primary/15 text-primary shadow-glow"
+              : "text-muted-foreground hover:text-primary",
+          )}
+          aria-label={followMe ? "Turn off Follow Me" : "Follow my location"}
+          aria-pressed={followMe}
+          title={followMe ? "Follow Me on (tap to turn off)" : "Follow Me"}
         >
           {locating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
