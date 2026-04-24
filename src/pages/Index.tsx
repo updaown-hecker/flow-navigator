@@ -621,7 +621,7 @@ const Index = () => {
       )}
 
       {/* === Top: full search panel (when opened or active route) === */}
-      {(searchOpen || destination) && (
+      {(searchOpen || destination) && !navigating && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[700] flex justify-center px-3 pt-3">
           <div className="pointer-events-auto w-full max-w-xl space-y-2">
             <div className="glass flex items-center gap-2 rounded-2xl p-2">
