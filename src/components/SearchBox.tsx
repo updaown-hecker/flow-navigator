@@ -42,6 +42,10 @@ export function SearchBox({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // When the user picks a result, we set `value` to its label. The effect below
+  // would otherwise see the new value, hit the cache, and reopen the dropdown.
+  // We suppress the next auto-open by remembering the value we just committed.
+  const suppressOpenForRef = useRef<string | null>(null);
 
   const biasKey = bias ? `${bias[0].toFixed(1)},${bias[1].toFixed(1)}` : "global";
 
@@ -52,6 +56,14 @@ export function SearchBox({
       setLoading(false);
       return;
     }
+
+    // Skip auto-opening when this value was just selected by the user.
+    if (suppressOpenForRef.current !== null && suppressOpenForRef.current === q) {
+      setLoading(false);
+      return;
+    }
+    // Any other change clears the suppression.
+    suppressOpenForRef.current = null;
 
     // 1. Cache hit — instant
     const cached = getCachedSearch(q, biasKey);
@@ -92,6 +104,24 @@ export function SearchBox({
     open && isEmpty && ((showHomeShortcut && home) || recents.length > 0);
   const showResults = open && !isEmpty && results.length > 0;
 
+  const commitSelection = (r: SearchResult) => {
+    suppressOpenForRef.current = r.shortLabel.trim();
+    abortRef.current?.abort();
+    setResults([]);
+    setLoading(false);
+    setOpen(false);
+    onSelect(r);
+  };
+
+  const commitHome = () => {
+    if (home) suppressOpenForRef.current = home.shortLabel.trim();
+    abortRef.current?.abort();
+    setResults([]);
+    setLoading(false);
+    setOpen(false);
+    onPickHome?.();
+  };
+
   return (
     <div className="relative w-full">
       <div
@@ -115,6 +145,7 @@ export function SearchBox({
         {value && !loading && (
           <button
             onClick={() => {
+              suppressOpenForRef.current = null;
               onChange("");
               onClear?.();
               setResults([]);
@@ -135,8 +166,7 @@ export function SearchBox({
                 <button
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    onPickHome?.();
-                    setOpen(false);
+                    commitHome();
                   }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-primary/10"
                 >
@@ -161,8 +191,7 @@ export function SearchBox({
                       key={`recent-${r.id}`}
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        onSelect(r);
-                        setOpen(false);
+                        commitSelection(r);
                       }}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-primary/10"
                     >
@@ -188,8 +217,7 @@ export function SearchBox({
                 key={r.id}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onSelect(r);
-                  setOpen(false);
+                  commitSelection(r);
                 }}
                 className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-primary/10"
               >
